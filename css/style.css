@@ -788,6 +788,34 @@ body {
   box-shadow: 0 8px 20px rgba(255, 159, 28, 0.4) !important;
 }
 
+/* すべり台ボタン */
+.btn-slide {
+  background: linear-gradient(135deg, #4cc9f0, #4361ee) !important;
+  box-shadow: 0 8px 20px rgba(67, 97, 238, 0.4) !important;
+}
+
+/* すべり台のタッチホットスポット */
+.slide-touch-area {
+  position: absolute;
+  left: 12%;
+  top: 36%;
+  width: 250px;
+  height: 220px;
+  cursor: pointer;
+  z-index: 12;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  pointer-events: auto;
+}
+
+.slide-bubble {
+  border-color: #ffd166 !important;
+  color: #f72585 !important;
+  margin-top: 10px;
+  animation: bounceSoft 2.2s infinite ease-in-out;
+}
+
 /* 洗面所・トイレのホットスポットボタン */
 .bathroom-hotspot {
   position: absolute;

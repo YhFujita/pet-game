@@ -770,8 +770,12 @@ class GameApp {
       // ペットがダッシュしてボールを拾いに行く
       setTimeout(() => {
         this.pet.fetchBall(targetX, targetY, () => {
-          this.setGuideText('ナイスキャッチ！ ボールを もってきてくれたよ！');
-          if (ball.parentNode) ball.parentNode.removeChild(ball);
+          this.setGuideText('ナイスキャッチ！ ボールを もってきてくれたよ！ もういっかい なげてね！');
+          // ボールをペットの足元にポンと戻して、何度でも続けて投げられるようにする！
+          ball.style.transition = 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)';
+          ball.style.left = '50%';
+          ball.style.top = '72%';
+          ball.style.transform = 'translate(-50%, -50%) scale(1)';
         });
       }, 500);
     };
@@ -1043,10 +1047,18 @@ class GameApp {
         🏠 おうちへ かえる
       </button>
 
+      <!-- すべり台タップホットスポット -->
+      <div id="slide-hotspot" class="slide-touch-area" title="すべりだい">
+        <div class="hotspot-bubble slide-bubble">🛝 すべりだい</div>
+      </div>
+
       <!-- 下部のアクションボタンバー -->
       <div class="walk-bottom-nav">
         <button id="btn-park-ball" class="big-action-button">
           🎾 ボールで あそぶ！
+        </button>
+        <button id="btn-park-slide" class="big-action-button btn-slide">
+          🛝 すべりだい！
         </button>
         <button id="btn-leave-park-bottom" class="big-action-button btn-go-home">
           🏠 おうちへ かえる
@@ -1058,6 +1070,17 @@ class GameApp {
       this.playBallGame();
     };
 
+    document.getElementById('btn-park-slide').onclick = () => {
+      this.playSlideGame();
+    };
+
+    const slideHotspot = document.getElementById('slide-hotspot');
+    if (slideHotspot) {
+      slideHotspot.onclick = () => {
+        this.playSlideGame();
+      };
+    }
+
     const goHome = () => {
       soundSystem.playClick();
       this.changeScene('living');
@@ -1065,6 +1088,84 @@ class GameApp {
 
     document.getElementById('btn-leave-park').onclick = goHome;
     document.getElementById('btn-leave-park-bottom').onclick = goHome;
+  }
+
+  // すべり台で遊ぶアクション
+  playSlideGame() {
+    if (this.pet.isMoving || this.pet.isEating) return;
+
+    // もしボールが出ていれば片付ける
+    const ball = document.getElementById('play-ball');
+    if (ball) ball.remove();
+
+    this.pet.isMoving = true;
+    const petContainer = document.getElementById('pet-container');
+    const wrapper = petContainer.querySelector('.pet-wrapper');
+
+    this.setGuideText(`${this.pet.name}が すべりだい を のぼるよ！ トントン…`);
+    if (wrapper) wrapper.classList.add('pet-running');
+
+    // 1. 階段のふもとへ移動
+    petContainer.style.transition = 'all 0.6s ease-in-out';
+    petContainer.style.left = '16%';
+    petContainer.style.top = '72%';
+    petContainer.style.transform = 'translate(-50%, -50%) scale(0.85)';
+
+    // 2. 階段をトントントンと登る
+    setTimeout(() => {
+      soundSystem.playStep();
+      petContainer.style.transition = 'all 0.4s ease-out';
+      petContainer.style.top = '54%';
+
+      setTimeout(() => {
+        soundSystem.playStep();
+        petContainer.style.top = '36%';
+
+        // 3. てっぺんで大喜び
+        setTimeout(() => {
+          if (wrapper) wrapper.classList.remove('pet-running');
+          this.pet.setExpression('happy');
+          soundSystem.playPetVoice(this.pet.type);
+          this.pet.spawnEffect('heart');
+          this.setGuideText('てっぺんに とうちゃく！ いくよーー！');
+
+          // 4. スロープをシューーッと滑り降りる
+          setTimeout(() => {
+            soundSystem.playSlideDown();
+            this.setGuideText('しゅーーーーっ！');
+
+            // すべり台のカーブに沿って滑走
+            petContainer.style.transition = 'all 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+            petContainer.style.left = '36%';
+            petContainer.style.top = '72%';
+            petContainer.style.transform = 'translate(-50%, -50%) scale(1) rotate(10deg)';
+
+            // 5. 着地！
+            setTimeout(() => {
+              petContainer.style.transform = 'translate(-50%, -50%) scale(1) rotate(0deg)';
+              soundSystem.playJoy();
+              this.pet.setExpression('happy', 2000);
+              this.pet.spawnEffect('sparkle');
+              this.pet.spawnEffect('note');
+              if (wrapper) {
+                wrapper.classList.remove('pet-jump');
+                void wrapper.offsetWidth;
+                wrapper.classList.add('pet-jump');
+              }
+              this.setGuideText('すべりだい、たのしかったね！ もういっかい すべる？');
+
+              // 6. 芝生の中央に戻る
+              setTimeout(() => {
+                petContainer.style.transition = 'all 0.6s ease-in-out';
+                petContainer.style.left = '50%';
+                petContainer.style.top = '65%';
+                this.pet.isMoving = false;
+              }, 1000);
+            }, 750);
+          }, 600);
+        }, 450);
+      }, 400);
+    }, 650);
   }
 
   // ==========================================
