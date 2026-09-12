@@ -430,7 +430,7 @@ class GameApp {
     const modalLayer = document.getElementById('modal-layer');
     const modalCard = document.getElementById('modal-card');
 
-    // ひらがな50音表
+    // ひらがな50音表 (小さい ゃ ゅ ょ を追加)
     const hiraganaRows = [
       ['あ','い','う','え','お'],
       ['か','き','く','け','こ'],
@@ -441,12 +441,18 @@ class GameApp {
       ['ま','み','む','め','も'],
       ['や','ゆ','よ','わ','を'],
       ['ら','り','る','れ','ろ'],
-      ['ん','ー','っ','゛','゜']
+      ['ん','ー','っ','゛','゜'],
+      ['ゃ','ゅ','ょ']
     ];
 
     let keyboardHTML = hiraganaRows.map(row => `
       <div class="keyboard-row">
-        ${row.map(char => `<button class="key-char" data-char="${char}">${char}</button>`).join('')}
+        ${row.map(char => {
+          let extraClass = '';
+          if (['ゃ','ゅ','ょ'].includes(char)) extraClass = ' key-small';
+          else if (['゛','゜','っ','ー'].includes(char)) extraClass = ' key-symbol';
+          return `<button class="key-char${extraClass}" data-char="${char}">${char}</button>`;
+        }).join('')}
       </div>
     `).join('');
 
@@ -486,6 +492,16 @@ class GameApp {
           inputEl.value = this.applyDakuten(inputEl.value);
         } else if (char === '゜') {
           inputEl.value = this.applyHandakuten(inputEl.value);
+        } else if (['ゃ', 'ゅ', 'ょ'].includes(char)) {
+          // 直前の文字が対応する大文字（や・ゆ・よ）なら置き換え、そうでなければ追加
+          const lastChar = inputEl.value.slice(-1);
+          if ((char === 'ゃ' && lastChar === 'や') ||
+              (char === 'ゅ' && lastChar === 'ゆ') ||
+              (char === 'ょ' && lastChar === 'よ')) {
+            inputEl.value = inputEl.value.slice(0, -1) + char;
+          } else if (inputEl.value.length < 8) {
+            inputEl.value += char;
+          }
         } else {
           if (inputEl.value.length < 8) {
             inputEl.value += char;
