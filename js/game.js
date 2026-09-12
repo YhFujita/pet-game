@@ -8,22 +8,14 @@ class GameApp {
     this.currentScene = 'shop_exterior'; // 'shop_exterior' | 'shop_interior' | 'living' | 'bathroom' | 'bath' | 'walk_trail' | 'walk_park'
     this.pet = null;
 
-    // 時間帯サイクル (非リアルタイム・イベント進行)
-    // 0: あさごはん, 1: じゆうじかん(あさ), 2: おやつ(あさ), 3: じゆうじかん(ひるまえ),
-    // 4: ひるごはん, 5: じゆうじかん(ひる), 6: おやつ(ひる), 7: じゆうじかん(ゆうがた),
-    // 8: ゆうごはん, 9: じゆうじかん(よる), 10: ねんね
+    // 生活リズムスケジュール (朝ごはん・自由時間・昼ごはん・自由時間・夕ごはん・夜のおしたく)
     this.timeSchedule = [
-      { id: 'breakfast', name: 'あさごはん', type: 'scheduled', timeOfDay: 'morning', icon: '🍳' },
-      { id: 'free_morning', name: 'じゆうじかん', type: 'free', timeOfDay: 'morning', icon: '🎈' },
-      { id: 'snack_morning', name: 'おやつ', type: 'scheduled', timeOfDay: 'morning', icon: '🍪' },
-      { id: 'free_before_noon', name: 'じゆうじかん', type: 'free', timeOfDay: 'noon', icon: '🎈' },
-      { id: 'lunch', name: 'ひるごはん', type: 'scheduled', timeOfDay: 'noon', icon: '🍱' },
-      { id: 'free_noon', name: 'じゆうじかん', type: 'free', timeOfDay: 'noon', icon: '🎈' },
-      { id: 'snack_afternoon', name: 'おやつ', type: 'scheduled', timeOfDay: 'noon', icon: '🍪' },
-      { id: 'free_evening', name: 'じゆうじかん', type: 'free', timeOfDay: 'evening', icon: '🎈' },
-      { id: 'dinner', name: 'ゆうごはん', type: 'scheduled', timeOfDay: 'evening', icon: '🍲' },
-      { id: 'free_night', name: 'じゆうじかん', type: 'free', timeOfDay: 'night', icon: '🎈' },
-      { id: 'sleep', name: 'ねんね', type: 'scheduled', timeOfDay: 'night', icon: '🌙' }
+      { id: 'breakfast', name: 'あさごはん', phase: 'meal', timeOfDay: 'morning', icon: '🍳' },
+      { id: 'free_morning', name: 'じゆうじかん（あさ）', phase: 'free', timeOfDay: 'morning', icon: '🎈' },
+      { id: 'lunch', name: 'ひるごはん', phase: 'meal', timeOfDay: 'noon', icon: '🍱' },
+      { id: 'free_afternoon', name: 'じゆうじかん（ひる）', phase: 'free', timeOfDay: 'noon', icon: '🎈' },
+      { id: 'dinner', name: 'ゆうごはん', phase: 'meal', timeOfDay: 'evening', icon: '🍲' },
+      { id: 'night_prep', name: 'よるの おしたく', phase: 'night', timeOfDay: 'night', icon: '🌙' }
     ];
 
     this.timeIndex = 0; // あさごはんから開始
@@ -34,6 +26,13 @@ class GameApp {
     this.hasWashedHands = false;
     this.hasUsedToilet = false;
     this.bathStep = 0; // 0: なし, 1: あわあわ, 2: シャワー, 3: ふわふわかんせい
+
+    // 夜のおしたく完了ステート (トイレ、歯磨き、お風呂の3つ)
+    this.nightTasks = {
+      toilet: false,
+      teeth: false,
+      bath: false
+    };
 
     // 選択中ペット一時保存
     this.selectedPetType = 'dog';
@@ -289,12 +288,12 @@ class GameApp {
         break;
 
       case 'walk_trail':
-        bgContainer.innerHTML = SVGAssets.getWalkTrailSVG();
+        bgContainer.innerHTML = SVGAssets.getWalkTrailSVG(currentSchedule.timeOfDay);
         this.setupWalkTrailScene();
         break;
 
       case 'walk_park':
-        bgContainer.innerHTML = SVGAssets.getWalkParkSVG();
+        bgContainer.innerHTML = SVGAssets.getWalkParkSVG(currentSchedule.timeOfDay);
         this.setupWalkParkScene();
         break;
     }
@@ -319,7 +318,7 @@ class GameApp {
     }
   }
 
-  // 時間帯インジケーターの更新
+  // 時間帯インジケーターとコマンドの更新
   updateTimeDisplay() {
     const sched = this.getCurrentSchedule();
     const timeBadge = document.getElementById('time-badge');
@@ -329,61 +328,135 @@ class GameApp {
 
     if (iconEl) iconEl.textContent = sched.icon;
     if (textEl) {
-      if (sched.type === 'scheduled') {
+      if (sched.phase === 'meal') {
         textEl.textContent = `${sched.name} の じかん`;
-      } else {
+      } else if (sched.phase === 'free') {
         textEl.textContent = `${sched.name} （すきなことしよう）`;
+      } else {
+        textEl.textContent = `${sched.name}`;
       }
     }
     if (dayBadge) {
       dayBadge.textContent = `${this.dayCount} にちめ`;
     }
 
-    // 「つぎの じかんへ」ボタンの強調
-    const nextBtn = document.getElementById('act-next-time');
-    if (nextBtn) {
-      if (sched.type === 'free') {
-        nextBtn.classList.add('pulse');
-      } else {
-        nextBtn.classList.remove('pulse');
-      }
-    }
+    // アクションバーのボタン表示・非表示をスケジュールに応じて更新
+    this.updateActionBarVisibility();
 
-    // ボタンのハイライト（いま定時イベントならそのボタンを強調）
-    this.updateActionButtonsHighlight();
-  }
-
-  // 定時イベントに対応するアクションボタンのハイライト
-  updateActionButtonsHighlight() {
-    const sched = this.getCurrentSchedule();
-    const foodBtn = document.getElementById('act-food');
-    const snackBtn = document.getElementById('act-snack');
-    const sleepBtn = document.getElementById('act-sleep');
-
-    [foodBtn, snackBtn, sleepBtn].forEach(btn => btn && btn.classList.remove('act-highlight'));
-
-    if (sched.id === 'breakfast' || sched.id === 'lunch' || sched.id === 'dinner') {
-      if (foodBtn) foodBtn.classList.add('act-highlight');
-    } else if (sched.id === 'snack_morning' || sched.id === 'snack_afternoon') {
-      if (snackBtn) snackBtn.classList.add('act-highlight');
-    } else if (sched.id === 'sleep') {
-      if (sleepBtn) sleepBtn.classList.add('act-highlight');
-    }
-
-    // ガイドメッセージの自動更新は、ペットを飼っていてリビングにいる時のみ行う
-    // (ショップや洗面所・公園など各部屋では専用のメッセージを優先する)
+    // ガイドメッセージの自動更新（ペットを飼っていてリビングにいる時）
     if (!this.pet || this.currentScene !== 'living') {
       return;
     }
 
-    if (sched.id === 'breakfast' || sched.id === 'lunch' || sched.id === 'dinner') {
+    if (sched.phase === 'meal') {
       this.setGuideText(`${sched.name}の じかんだよ！ ごはんを あげてね！`);
-    } else if (sched.id === 'snack_morning' || sched.id === 'snack_afternoon') {
-      this.setGuideText(`おやつの じかんだよ！ おいしい おやつを あげてね！`);
-    } else if (sched.id === 'sleep') {
-      this.setGuideText(`よるだよ。はみがきをして、ねんね しようね！`);
-    } else {
-      this.setGuideText(`じゆうじかんだよ。おさんぽ や ボールあそび を しよう！`);
+    } else if (sched.phase === 'free') {
+      this.setGuideText(`じゆうじかんだよ。おさんぽ、あそぶ、おやつ、といれ・はみがき を たのしもう！`);
+    } else if (sched.phase === 'night') {
+      const allDone = this.nightTasks.toilet && this.nightTasks.teeth && this.nightTasks.bath;
+      if (allDone) {
+        this.setGuideText(`といれ、はみがき、おふろ がぜんぶ おわったよ！ ねんね しようね！🌙`);
+      } else {
+        const remaining = [];
+        if (!this.nightTasks.toilet) remaining.push('といれ');
+        if (!this.nightTasks.teeth) remaining.push('はみがき');
+        if (!this.nightTasks.bath) remaining.push('おふろ');
+        this.setGuideText(`よるだよ。${remaining.join(' と ')} を すませて ねんね しようね！`);
+      }
+    }
+  }
+
+  // スケジュールに沿ったアクションボタンの表示・非表示およびハイライト制御
+  updateActionBarVisibility() {
+    const sched = this.getCurrentSchedule();
+    const foodBtn = document.getElementById('act-food');
+    const snackBtn = document.getElementById('act-snack');
+    const ballBtn = document.getElementById('act-ball');
+    const toiletBtn = document.getElementById('act-toilet');
+    const bathBtn = document.getElementById('act-bath');
+    const walkBtn = document.getElementById('act-walk');
+    const sleepBtn = document.getElementById('act-sleep');
+    const nextBtn = document.getElementById('act-next-time');
+
+    const setVisible = (btn, isVisible) => {
+      if (!btn) return;
+      if (isVisible) {
+        btn.classList.remove('hidden');
+      } else {
+        btn.classList.add('hidden');
+      }
+    };
+
+    // クラスのリセット
+    [foodBtn, snackBtn, ballBtn, toiletBtn, bathBtn, walkBtn, sleepBtn, nextBtn].forEach(btn => {
+      if (btn) {
+        btn.classList.remove('act-highlight', 'pulse', 'sleep-ready-pulse');
+      }
+    });
+
+    if (sched.phase === 'meal') {
+      // ごはんの時間:
+      // ごはん・つぎのじかんへ は有効、おやつ・おふろ・おさんぽ・ねんね・トイレ・あそぶ は非表示
+      setVisible(foodBtn, true);
+      setVisible(nextBtn, true);
+      setVisible(snackBtn, false);
+      setVisible(bathBtn, false);
+      setVisible(walkBtn, false);
+      setVisible(sleepBtn, false);
+      setVisible(toiletBtn, false);
+      setVisible(ballBtn, false);
+
+      if (foodBtn) foodBtn.classList.add('act-highlight');
+    } else if (sched.phase === 'free') {
+      // 自由時間 (午前・午後):
+      // トイレと歯磨き・おやつ・あそぶ・おさんぽ・つぎのじかんへ が有効
+      // ごはん・おふろ・ねんね は非表示
+      setVisible(toiletBtn, true);
+      setVisible(snackBtn, true);
+      setVisible(ballBtn, true);
+      setVisible(walkBtn, true);
+      setVisible(nextBtn, true);
+
+      setVisible(foodBtn, false);
+      setVisible(bathBtn, false);
+      setVisible(sleepBtn, false);
+
+      if (nextBtn) nextBtn.classList.add('pulse');
+    } else if (sched.phase === 'night') {
+      // 夜のおしたく時間:
+      // トイレ・歯磨き と おふろ が有効。
+      // ごはん・おやつ・あそぶ・おさんぽ・つぎのじかんへ は非表示
+      setVisible(toiletBtn, true);
+      setVisible(bathBtn, true);
+      setVisible(foodBtn, false);
+      setVisible(snackBtn, false);
+      setVisible(ballBtn, false);
+      setVisible(walkBtn, false);
+      setVisible(nextBtn, false);
+
+      // トイレ・歯磨き・お風呂をすべて終わらせると ねんね が有効になる
+      const allDone = this.nightTasks.toilet && this.nightTasks.teeth && this.nightTasks.bath;
+      if (allDone) {
+        setVisible(sleepBtn, true);
+        if (sleepBtn) sleepBtn.classList.add('sleep-ready-pulse');
+      } else {
+        setVisible(sleepBtn, false);
+      }
+    }
+  }
+
+  // 夜のお世話完了チェック
+  checkNightTasksCompletion() {
+    const sched = this.getCurrentSchedule();
+    if (sched.phase === 'night') {
+      this.updateActionBarVisibility();
+      const allDone = this.nightTasks.toilet && this.nightTasks.teeth && this.nightTasks.bath;
+      if (allDone) {
+        soundSystem.playJoy();
+        if (this.currentScene === 'living') {
+          this.setGuideText('といれ、はみがき、おふろ がぜんぶ おわったよ！ ねんね しようね！🌙');
+        }
+      }
     }
   }
 
@@ -729,9 +802,9 @@ class GameApp {
       if (foodEl.parentNode) foodEl.parentNode.removeChild(foodEl);
       this.setGuideText(`${foodName}、おいしかったね！ ごちそうさまでした！`);
 
-      // もし現在が「あさごはん」「ひるごはん」「ゆうごはん」の定時イベントなら次へ進める
+      // 食事時間であれば自動的に次の自由時間・夜へ進める
       const sched = this.getCurrentSchedule();
-      if (sched.id === 'breakfast' || sched.id === 'lunch' || sched.id === 'dinner') {
+      if (sched.phase === 'meal') {
         setTimeout(() => {
           this.advanceTimeToNext();
         }, 1200);
@@ -739,7 +812,7 @@ class GameApp {
     });
   }
 
-  // おやつをあげる
+  // おやつをあげる (自由時間の一部としていつでも楽しめる)
   giveSnack() {
     if (this.pet.isEating) return;
 
@@ -760,13 +833,7 @@ class GameApp {
     this.pet.eatAction(() => {
       if (snackEl.parentNode) snackEl.parentNode.removeChild(snackEl);
       this.setGuideText(`${snackName}、とっても おいしかったね！`);
-
-      const sched = this.getCurrentSchedule();
-      if (sched.id === 'snack_morning' || sched.id === 'snack_afternoon') {
-        setTimeout(() => {
-          this.advanceTimeToNext();
-        }, 1200);
-      }
+      // おやつは自由時間内なので自動進行はせず、好きなだけ遊べる
     });
   }
 
@@ -907,6 +974,8 @@ class GameApp {
       this.setGuideText('じゃーー！ みずを ながしたよ。つぎは てあらいを しようね！');
       this.pet.spawnEffect('sparkle');
       this.hasUsedToilet = true;
+      this.nightTasks.toilet = true;
+      this.checkNightTasksCompletion();
     }, 1000);
   }
 
@@ -954,6 +1023,8 @@ class GameApp {
       soundSystem.playJoy();
       this.pet.setExpression('happy', 1500);
       this.hasBrushedTeeth = true;
+      this.nightTasks.teeth = true;
+      this.checkNightTasksCompletion();
     }, 1200);
   }
 
@@ -988,6 +1059,8 @@ class GameApp {
     document.getElementById('btn-leave-bath').onclick = () => {
       soundSystem.playClick();
       this.changeScene('living');
+      this.nightTasks.bath = true;
+      this.checkNightTasksCompletion();
     };
 
     // シャンプー泡立て
@@ -995,6 +1068,8 @@ class GameApp {
       soundSystem.playSoap();
       this.pet.spawnEffect('clean');
       this.setGuideText('もこもこ あわあわ シャンプー！');
+      this.nightTasks.bath = true;
+      this.checkNightTasksCompletion();
     };
 
     // シャワーで流す
@@ -1004,6 +1079,8 @@ class GameApp {
       this.pet.setExpression('happy', 1500);
       soundSystem.playJoy();
       this.setGuideText('シャワー で ざーー！ あわが ながれて さっぱり！');
+      this.nightTasks.bath = true;
+      this.checkNightTasksCompletion();
     };
 
     // ドライヤーで乾かす
@@ -1013,6 +1090,8 @@ class GameApp {
       this.pet.setExpression('happy', 1800);
       soundSystem.playJoy();
       this.setGuideText('ドライヤー で ぶぉーん！ けが ふわふわ に なったよ！');
+      this.nightTasks.bath = true;
+      this.checkNightTasksCompletion();
     };
   }
 
@@ -1064,9 +1143,9 @@ class GameApp {
     };
   }
 
-  // お散歩道シーンのセットアップ
+  // お散歩道シーンのセットアップ (歩行アクション＆発見オブジェクト)
   setupWalkTrailScene() {
-    this.setGuideText('おさんぽみち を てくてく あるこう！ なでなで も できるよ！');
+    this.setGuideText('おさんぽみち を てくてく あるこう！ なにか みつかるかな？');
     const overlay = document.getElementById('interactive-overlay');
 
     overlay.innerHTML = `
@@ -1074,12 +1153,157 @@ class GameApp {
       <button id="btn-leave-walk" class="leave-room-btn">
         🏠 おうちへ かえる
       </button>
+
+      <!-- 下部のお散歩操作バー -->
+      <div class="walk-bottom-nav">
+        <button id="btn-walk-step" class="btn-walk-step">
+          <span>🐾</span>
+          <span>てくてく あるく</span>
+        </button>
+      </div>
+
+      <!-- 発見オブジェクトのタップ誘導バッジ -->
+      <div id="badge-obj-butterfly" class="trail-obj-badge" style="left: 63%; top: 40%;">🦋 ちょうちょ</div>
+      <div id="badge-obj-flower" class="trail-obj-badge" style="left: 24%; top: 70%;">🌸 おはな</div>
+      <div id="badge-obj-clover" class="trail-obj-badge" style="left: 70%; top: 75%;">🍀 クローバー</div>
+      <div id="badge-obj-acorn" class="trail-obj-badge" style="left: 83%; top: 56%;">🌰 どんぐり</div>
+      <div id="badge-obj-bird" class="trail-obj-badge" style="left: 10%; top: 25%;">🐦 ことり</div>
     `;
 
     document.getElementById('btn-leave-walk').onclick = () => {
       soundSystem.playClick();
       this.changeScene('living');
     };
+
+    // 「てくてく あるく」アクション
+    const walkBtn = document.getElementById('btn-walk-step');
+    if (walkBtn) {
+      walkBtn.onclick = () => {
+        this.actionWalkStep();
+      };
+    }
+
+    // 各オブジェクトのクリックイベント登録 (バッジとSVG要素両方に対応)
+    this.attachTrailObjectEvents();
+  }
+
+  // お散歩でてくてく歩くアクション（道が動き、足音が鳴る）
+  actionWalkStep() {
+    if (this.pet.isMoving) return;
+    this.pet.isMoving = true;
+
+    soundSystem.playStep();
+    const petContainer = document.getElementById('pet-container');
+    const wrapper = petContainer ? petContainer.querySelector('.pet-wrapper') : null;
+
+    if (wrapper) wrapper.classList.add('pet-running');
+    this.pet.setExpression('happy');
+    this.setGuideText('てくてく、てくてく… たのしい おさんぽ！');
+
+    // 背景SVGの小道・木々・草花グループをスクロールアニメーション
+    const movingWorld = document.getElementById('trail-moving-world');
+    if (movingWorld) {
+      movingWorld.classList.remove('trail-scroll-anim');
+      void movingWorld.offsetWidth; // リフロー
+      movingWorld.classList.add('trail-scroll-anim');
+    }
+
+    // 2歩目の足音
+    setTimeout(() => {
+      soundSystem.playStep();
+    }, 400);
+
+    // 0.8秒後に歩行停止、発見のワクワク演出
+    setTimeout(() => {
+      if (wrapper) wrapper.classList.remove('pet-running');
+      this.pet.isMoving = false;
+
+      const hints = [
+        'ちょうちょ が ひらひら とんでるよ！ タップしてみてね！',
+        'きれいな おはな が さいているよ！ タップしてみてね！',
+        'よつばの クローバー が あるかも！ さがしてみてね！',
+        'ころころ どんぐり が おちているよ！ タップしてみてね！',
+        'ちゅんちゅん！ きのうえ に ことり さん が いるよ！'
+      ];
+      const randomHint = hints[Math.floor(Math.random() * hints.length)];
+      this.setGuideText(`てくてく あるいたよ！ ${randomHint}`);
+    }, 850);
+  }
+
+  // お散歩コースの発見オブジェクトイベント登録
+  attachTrailObjectEvents() {
+    // 1. ちょうちょ
+    const onButterfly = () => {
+      soundSystem.playJoy();
+      soundSystem.playPetVoice(this.pet.type);
+      this.pet.setExpression('happy', 2000);
+      this.pet.spawnEffect('heart');
+      this.pet.spawnEffect('sparkle');
+      const wrapper = document.querySelector('#pet-container .pet-wrapper');
+      if (wrapper) {
+        wrapper.classList.remove('pet-jump');
+        void wrapper.offsetWidth;
+        wrapper.classList.add('pet-jump');
+      }
+      this.setGuideText('ちょうちょ を みつけたね！ ひらひら とんで かわいいね！');
+    };
+    const bBadge = document.getElementById('badge-obj-butterfly');
+    const bSvg = document.getElementById('trail-obj-butterfly');
+    if (bBadge) bBadge.onclick = onButterfly;
+    if (bSvg) bSvg.onclick = onButterfly;
+
+    // 2. おはな
+    const onFlower = () => {
+      soundSystem.playClick();
+      soundSystem.playPetVoice(this.pet.type);
+      this.pet.setExpression('happy', 2000);
+      this.pet.spawnEffect('sparkle');
+      this.pet.spawnEffect('heart');
+      this.setGuideText('きれいな おはな を みつけたよ！ いいにおいが するね！');
+    };
+    const fBadge = document.getElementById('badge-obj-flower');
+    const fSvg = document.getElementById('trail-obj-flower');
+    if (fBadge) fBadge.onclick = onFlower;
+    if (fSvg) fSvg.onclick = onFlower;
+
+    // 3. クローバー
+    const onClover = () => {
+      soundSystem.playJoy();
+      this.pet.setExpression('happy', 2000);
+      this.pet.spawnEffect('sparkle');
+      this.pet.spawnEffect('sparkle');
+      this.setGuideText('あっ！ よつばの クローバー だ！ いいこと ありそうだね！🍀');
+    };
+    const cBadge = document.getElementById('badge-obj-clover');
+    const cSvg = document.getElementById('trail-obj-clover');
+    if (cBadge) cBadge.onclick = onClover;
+    if (cSvg) cSvg.onclick = onClover;
+
+    // 4. どんぐり
+    const onAcorn = () => {
+      soundSystem.playClick();
+      this.pet.setExpression('happy', 1500);
+      this.pet.spawnEffect('note');
+      this.setGuideText('ころころ どんぐり を みつけたよ！ まあるくて かわいいね！🌰');
+    };
+    const aBadge = document.getElementById('badge-obj-acorn');
+    const aSvg = document.getElementById('trail-obj-acorn');
+    if (aBadge) aBadge.onclick = onAcorn;
+    if (aSvg) aSvg.onclick = onAcorn;
+
+    // 5. ことり
+    const onBird = () => {
+      soundSystem.playMorningBirds();
+      soundSystem.playPetVoice(this.pet.type);
+      this.pet.setExpression('happy', 2000);
+      this.pet.spawnEffect('note');
+      this.pet.spawnEffect('heart');
+      this.setGuideText('ちゅんちゅん！ かわいい ことり さんが ごあいさつ してくれたよ！🐦');
+    };
+    const birdBadge = document.getElementById('badge-obj-bird');
+    const birdSvg = document.getElementById('trail-obj-bird');
+    if (birdBadge) birdBadge.onclick = onBird;
+    if (birdSvg) birdSvg.onclick = onBird;
   }
 
   // 公園シーンのセットアップ
@@ -1128,7 +1352,7 @@ class GameApp {
     };
   }
 
-  // すべり台で遊ぶアクション
+  // すべり台で遊ぶアクション（座標調整済み）
   playSlideGame() {
     if (this.pet.isMoving || this.pet.isEating) return;
 
@@ -1146,18 +1370,19 @@ class GameApp {
     // 1. 階段のふもとへ移動
     petContainer.style.transition = 'all 0.6s ease-in-out';
     petContainer.style.left = '16%';
-    petContainer.style.top = '72%';
+    petContainer.style.top = '70%';
     petContainer.style.transform = 'translate(-50%, -50%) scale(0.85)';
 
     // 2. 階段をトントントンと登る
     setTimeout(() => {
       soundSystem.playStep();
       petContainer.style.transition = 'all 0.4s ease-out';
-      petContainer.style.top = '54%';
+      petContainer.style.top = '50%';
 
       setTimeout(() => {
         soundSystem.playStep();
-        petContainer.style.top = '36%';
+        // てっぺん（高さを少し高く調整: 36% -> 30%）
+        petContainer.style.top = '30%';
 
         // 3. てっぺんで大喜び
         setTimeout(() => {
@@ -1172,10 +1397,10 @@ class GameApp {
             soundSystem.playSlideDown();
             this.setGuideText('しゅーーーーっ！');
 
-            // すべり台のカーブに沿って滑走
+            // すべり台のカーブに沿って滑走（着地高さを少し高く調整: 72% -> 62%でレールの上にしっかり乗る）
             petContainer.style.transition = 'all 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
             petContainer.style.left = '36%';
-            petContainer.style.top = '72%';
+            petContainer.style.top = '62%';
             petContainer.style.transform = 'translate(-50%, -50%) scale(1) rotate(10deg)';
 
             // 5. 着地！
@@ -1217,36 +1442,40 @@ class GameApp {
   }
 
   // ==========================================
-  // ⑦ ねんね（はみがき＆就寝）
+  // ⑦ ねんね（夜のおしたく完了＆就寝）
   // ==========================================
   handleSleepAction() {
-    const sched = this.getCurrentSchedule();
+    const allDone = this.nightTasks.toilet && this.nightTasks.teeth && this.nightTasks.bath;
 
-    // 歯磨きをしていない場合はまず歯磨きを促す
-    if (!this.hasBrushedTeeth) {
+    // トイレ、歯磨き、お風呂が未完了の場合は案内
+    if (!allDone) {
       const modalLayer = document.getElementById('modal-layer');
       const modalCard = document.getElementById('modal-card');
 
+      const remaining = [];
+      if (!this.nightTasks.toilet) remaining.push('🚽 といれ');
+      if (!this.nightTasks.teeth) remaining.push('🪥 はみがき');
+      if (!this.nightTasks.bath) remaining.push('🛁 おふろ');
+
       modalCard.innerHTML = `
         <div class="confirm-modal-content">
-          <h2 class="modal-title">はみがき は もう した？</h2>
-          <p class="modal-desc">ねんねの まえに、せんめんじょ で はみがき を して ぴかぴか に しよう！</p>
+          <h2 class="modal-title">ねんねの まえの おしたく</h2>
+          <p class="modal-desc">まだ ${remaining.join(' と ')} が おわっていないよ！<br>すませてから ねんね しようね！</p>
           <div class="modal-buttons">
-            <button id="btn-go-brush-now" class="btn-primary">🪥 はみがき しにいく</button>
-            <button id="btn-skip-brush" class="btn-secondary">そのまま ねんねする</button>
+            <button id="btn-stay-prep" class="btn-primary">おしたく する！</button>
+            <button id="btn-force-sleep" class="btn-secondary">そのまま ねんねする</button>
           </div>
         </div>
       `;
 
       modalLayer.classList.remove('hidden');
 
-      document.getElementById('btn-go-brush-now').onclick = () => {
+      document.getElementById('btn-stay-prep').onclick = () => {
         soundSystem.playClick();
         modalLayer.classList.add('hidden');
-        this.changeScene('bathroom');
       };
 
-      document.getElementById('btn-skip-brush').onclick = () => {
+      document.getElementById('btn-force-sleep').onclick = () => {
         soundSystem.playClick();
         modalLayer.classList.add('hidden');
         this.executeSleep();
@@ -1280,13 +1509,14 @@ class GameApp {
     `;
     viewport.appendChild(sleepCover);
 
-    // 3.5秒後に朝がやってくる
+    // 3.8秒後に新しい朝がやってくる
     setTimeout(() => {
       this.dayCount++;
       this.timeIndex = 0; // あさごはんへリセット
       this.hasBrushedTeeth = false;
       this.hasWashedHands = false;
       this.hasUsedToilet = false;
+      this.nightTasks = { toilet: false, teeth: false, bath: false };
 
       if (sleepCover.parentNode) {
         sleepCover.parentNode.removeChild(sleepCover);
@@ -1303,27 +1533,14 @@ class GameApp {
     soundSystem.playClick();
 
     if (this.timeIndex >= this.timeSchedule.length - 1) {
-      // 最後のねんねなら就寝処理へ
+      // 最後の夜なら就寝処理へ
       this.handleSleepAction();
       return;
     }
 
     this.timeIndex++;
-    const nextSched = this.getCurrentSchedule();
-
-    // もし次が「ねんね」なら
-    if (nextSched.id === 'sleep') {
-      this.changeScene('living');
-      this.handleSleepAction();
-      return;
-    }
-
-    // リビングを表示して時間帯を反映
-    if (this.currentScene === 'living') {
-      this.changeScene('living');
-    } else {
-      this.updateTimeDisplay();
-    }
+    // リビングを表示して時間帯とボタンを反映
+    this.changeScene('living');
   }
 }
 

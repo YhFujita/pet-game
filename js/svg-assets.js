@@ -801,90 +801,351 @@ const SVGAssets = {
     `;
   },
 
-  // 6. お散歩コース (walk-trail)
-  getWalkTrailSVG() {
+  // 6. お散歩コース (walk-trail) - 朝・昼・夕・夜の時間帯対応と動く景色・発見オブジェクト
+  getWalkTrailSVG(timeOfDay = 'morning') {
+    let skyGrad = '';
+    let celestial = '';
+    let clouds = '';
+    let hills = '';
+    let grassGrad = '';
+    let pathColor = '';
+    let pathStroke = '';
+    let treeLeaves1 = '';
+    let treeLeaves2 = '';
+    let tint = 'rgba(0, 0, 0, 0)';
+
+    if (timeOfDay === 'morning') {
+      skyGrad = `
+        <stop offset="0%" stop-color="#90e0ef" />
+        <stop offset="60%" stop-color="#bde0fe" />
+        <stop offset="100%" stop-color="#e0f7fa" />
+      `;
+      celestial = `
+        <circle cx="140" cy="80" r="36" fill="#ffd166" opacity="0.95" filter="drop-shadow(0 0 12px #ffe6a7)" />
+      `;
+      clouds = `
+        <ellipse cx="320" cy="100" rx="65" ry="28" fill="#ffffff" opacity="0.85" />
+        <ellipse cx="365" cy="88" rx="55" ry="32" fill="#ffffff" opacity="0.85" />
+        <ellipse cx="780" cy="75" rx="75" ry="30" fill="#ffffff" opacity="0.85" />
+      `;
+      hills = `
+        <ellipse cx="250" cy="370" rx="320" ry="90" fill="#95d5b2" />
+        <ellipse cx="750" cy="370" rx="380" ry="100" fill="#74c69d" />
+      `;
+      grassGrad = `
+        <stop offset="0%" stop-color="#74c69d" />
+        <stop offset="100%" stop-color="#52b788" />
+      `;
+      pathColor = '#eddcd2';
+      pathStroke = '#ddb892';
+      treeLeaves1 = '#52b788';
+      treeLeaves2 = '#74c69d';
+    } else if (timeOfDay === 'noon') {
+      skyGrad = `
+        <stop offset="0%" stop-color="#0096c7" />
+        <stop offset="50%" stop-color="#48cae4" />
+        <stop offset="100%" stop-color="#ade8f4" />
+      `;
+      celestial = `
+        <circle cx="200" cy="70" r="42" fill="#ffb703" filter="drop-shadow(0 0 16px #ffd166)" />
+      `;
+      clouds = `
+        <ellipse cx="400" cy="90" rx="80" ry="36" fill="#ffffff" opacity="0.9" />
+        <ellipse cx="450" cy="75" rx="70" ry="40" fill="#ffffff" opacity="0.9" />
+        <ellipse cx="820" cy="95" rx="90" ry="38" fill="#ffffff" opacity="0.9" />
+      `;
+      hills = `
+        <ellipse cx="250" cy="370" rx="320" ry="90" fill="#74c69d" />
+        <ellipse cx="750" cy="370" rx="380" ry="100" fill="#52b788" />
+      `;
+      grassGrad = `
+        <stop offset="0%" stop-color="#52b788" />
+        <stop offset="100%" stop-color="#40916c" />
+      `;
+      pathColor = '#f0e6df';
+      pathStroke = '#cbb29b';
+      treeLeaves1 = '#40916c';
+      treeLeaves2 = '#52b788';
+    } else if (timeOfDay === 'evening') {
+      skyGrad = `
+        <stop offset="0%" stop-color="#9d4edd" />
+        <stop offset="35%" stop-color="#f72585" />
+        <stop offset="70%" stop-color="#f77f00" />
+        <stop offset="100%" stop-color="#ffb703" />
+      `;
+      celestial = `
+        <circle cx="180" cy="130" r="48" fill="#f72585" filter="drop-shadow(0 0 20px #f77f00)" />
+      `;
+      clouds = `
+        <ellipse cx="320" cy="110" rx="70" ry="26" fill="#ffd166" opacity="0.6" />
+        <ellipse cx="370" cy="98" rx="60" ry="28" fill="#ff758f" opacity="0.6" />
+        <ellipse cx="780" cy="120" rx="85" ry="30" fill="#e7c6ff" opacity="0.5" />
+      `;
+      hills = `
+        <ellipse cx="250" cy="370" rx="320" ry="90" fill="#b08968" />
+        <ellipse cx="750" cy="370" rx="380" ry="100" fill="#7f5539" />
+      `;
+      grassGrad = `
+        <stop offset="0%" stop-color="#b08968" />
+        <stop offset="100%" stop-color="#7f5539" />
+      `;
+      pathColor = '#ddb892';
+      pathStroke = '#9c6644';
+      treeLeaves1 = '#7f5539';
+      treeLeaves2 = '#9c6644';
+      tint = 'rgba(240, 90, 20, 0.16)';
+    } else if (timeOfDay === 'night') {
+      skyGrad = `
+        <stop offset="0%" stop-color="#0b132b" />
+        <stop offset="60%" stop-color="#1c2541" />
+        <stop offset="100%" stop-color="#3a0ca3" />
+      `;
+      celestial = `
+        <!-- 三日月 -->
+        <path d="M 180 60 A 30 30 0 1 1 150 110 A 38 38 0 0 0 180 60 Z" fill="#ffd166" filter="drop-shadow(0 0 12px #ffe66d)" />
+        <!-- 星々 -->
+        <polygon points="280,60 282,65 287,66 283,70 284,75 280,72 276,75 277,70 273,66 278,65" fill="#ffffff" />
+        <polygon points="450,45 452,50 457,51 453,55 454,60 450,57 446,60 447,55 443,51 448,50" fill="#ffffff" opacity="0.9" />
+        <polygon points="620,80 622,85 627,86 623,90 624,95 620,92 616,95 617,90 613,86 618,85" fill="#ffffff" />
+        <polygon points="760,50 762,54 767,55 763,58 764,63 760,60 756,63 757,58 753,55 758,54" fill="#ffffff" opacity="0.85" />
+        <polygon points="880,85 882,90 887,91 883,95 884,100 880,97 876,100 877,95 873,91 878,90" fill="#ffffff" />
+        <!-- ほたるのような光粒 -->
+        <circle cx="260" cy="460" r="4" fill="#d8f3dc" opacity="0.8" filter="drop-shadow(0 0 6px #74c69d)" />
+        <circle cx="680" cy="440" r="5" fill="#d8f3dc" opacity="0.85" filter="drop-shadow(0 0 6px #74c69d)" />
+      `;
+      clouds = '';
+      hills = `
+        <ellipse cx="250" cy="370" rx="320" ry="90" fill="#1b263b" />
+        <ellipse cx="750" cy="370" rx="380" ry="100" fill="#0d1b2a" />
+      `;
+      grassGrad = `
+        <stop offset="0%" stop-color="#1b4332" />
+        <stop offset="100%" stop-color="#081c15" />
+      `;
+      pathColor = '#3a506b';
+      pathStroke = '#1c2541';
+      treeLeaves1 = '#081c15';
+      treeLeaves2 = '#1b4332';
+      tint = 'rgba(11, 19, 43, 0.35)';
+    }
+
     return `
-      <svg viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid slice" class="bg-svg">
+      <svg viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid slice" class="bg-svg" id="walk-trail-svg-root">
         <defs>
           <linearGradient id="trailSky" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#90e0ef" />
-            <stop offset="100%" stop-color="#caf0f8" />
+            ${skyGrad}
           </linearGradient>
           <linearGradient id="trailGrass" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#74c69d" />
-            <stop offset="100%" stop-color="#40916c" />
+            ${grassGrad}
           </linearGradient>
         </defs>
 
-        <!-- 青空 -->
+        <!-- 空レイヤー -->
         <rect width="1000" height="360" fill="url(#trailSky)" />
 
-        <!-- 太陽と雲 -->
-        <circle cx="120" cy="90" r="38" fill="#ffd166" opacity="0.9" />
-        <ellipse cx="320" cy="110" rx="70" ry="30" fill="#ffffff" opacity="0.85" />
-        <ellipse cx="370" cy="95" rx="60" ry="35" fill="#ffffff" opacity="0.85" />
-        <ellipse cx="780" cy="80" rx="80" ry="35" fill="#ffffff" opacity="0.85" />
+        <!-- 太陽・月・星 -->
+        ${celestial}
 
-        <!-- 遠くの山・丘 -->
-        <ellipse cx="250" cy="370" rx="300" ry="90" fill="#95d5b2" />
-        <ellipse cx="750" cy="370" rx="360" ry="100" fill="#74c69d" />
-
-        <!-- 並木道 (木々) -->
-        <g>
-          <!-- 左の木 -->
-          <rect x="85" y="240" width="30" height="150" fill="#8d5b4c" rx="4" />
-          <ellipse cx="100" cy="210" rx="65" ry="75" fill="#52b788" />
-          <ellipse cx="100" cy="190" rx="55" ry="60" fill="#74c69d" />
-
-          <!-- 右の木 -->
-          <rect x="865" y="220" width="35" height="170" fill="#8d5b4c" rx="4" />
-          <ellipse cx="880" cy="190" rx="75" ry="85" fill="#40916c" />
-          <ellipse cx="880" cy="170" rx="60" ry="65" fill="#52b788" />
+        <!-- 雲 -->
+        <g id="trail-sky-clouds">
+          ${clouds}
         </g>
 
-        <!-- 草原 -->
+        <!-- 遠くの山・丘 -->
+        <g id="trail-distant-hills">
+          ${hills}
+        </g>
+
+        <!-- 草原ベース -->
         <rect y="360" width="1000" height="240" fill="url(#trailGrass)" />
 
-        <!-- お散歩の小道 (手前に広がるカーブ) -->
-        <path d="M 450 360 Q 420 450 150 600 L 750 600 Q 560 460 520 360 Z" fill="#eddcd2" stroke="#ddb892" stroke-width="4" />
+        <!-- 動くお散歩ワールド (スクロール対象グループ) -->
+        <g id="trail-moving-world" class="trail-moving-group">
+          <!-- 並木道 (木々) -->
+          <g id="trail-trees">
+            <!-- 左の木 -->
+            <rect x="75" y="240" width="30" height="150" fill="#6f4e37" rx="4" />
+            <ellipse cx="90" cy="210" rx="65" ry="75" fill="${treeLeaves1}" />
+            <ellipse cx="90" cy="190" rx="55" ry="60" fill="${treeLeaves2}" />
 
-        <!-- 道端のカラフルなお花 -->
-        <circle cx="280" cy="460" r="12" fill="#ff70a6" />
-        <circle cx="280" cy="460" r="4" fill="#ffd166" />
-        <circle cx="310" cy="480" r="10" fill="#ffd166" />
-        <circle cx="310" cy="480" r="3" fill="#ff70a6" />
-        <circle cx="680" cy="470" r="14" fill="#ffb703" />
-        <circle cx="680" cy="470" r="5" fill="#ffffff" />
-        <circle cx="730" cy="495" r="12" fill="#f72585" />
-        <circle cx="730" cy="495" r="4" fill="#ffd166" />
+            <!-- 木にとまる小鳥 (発見オブジェクト) -->
+            <g id="trail-obj-bird" class="trail-interactive-obj" style="cursor: pointer;">
+              <ellipse cx="120" cy="180" rx="14" ry="10" fill="#48cae4" />
+              <circle cx="130" cy="174" r="7" fill="#48cae4" />
+              <polygon points="137,173 144,175 137,178" fill="#ffb703" />
+              <circle cx="132" cy="173" r="1.5" fill="#000000" />
+              <!-- 羽 -->
+              <ellipse cx="118" cy="181" rx="8" ry="5" fill="#0077b6" />
+            </g>
 
-        <!-- 舞う蝶々 -->
-        <path d="M 640 280 Q 648 270 655 280 Q 648 290 640 280" fill="#ffd166" />
-        <path d="M 658 280 Q 666 270 673 280 Q 666 290 658 280" fill="#ffd166" />
+            <!-- 右の木 -->
+            <rect x="875" y="220" width="35" height="170" fill="#6f4e37" rx="4" />
+            <ellipse cx="890" cy="190" rx="75" ry="85" fill="${treeLeaves1}" />
+            <ellipse cx="890" cy="170" rx="60" ry="65" fill="${treeLeaves2}" />
+
+            <!-- 木のふもとのどんぐり (発見オブジェクト) -->
+            <g id="trail-obj-acorn" class="trail-interactive-obj" style="cursor: pointer;">
+              <ellipse cx="855" cy="385" rx="10" ry="12" fill="#9c6644" />
+              <path d="M 845 380 Q 855 372 865 380 Z" fill="#6f4e37" />
+              <line x1="855" y1="372" x2="855" y2="366" stroke="#4a3525" stroke-width="2" />
+            </g>
+          </g>
+
+          <!-- お散歩の小道 (パースペクティブ) -->
+          <path id="trail-path-strip" d="M 450 360 Q 420 450 150 600 L 750 600 Q 560 460 520 360 Z" fill="${pathColor}" stroke="${pathStroke}" stroke-width="4" />
+          <!-- 小道の足跡・飛び石 -->
+          <ellipse cx="440" cy="460" rx="16" ry="7" fill="${pathStroke}" opacity="0.4" />
+          <ellipse cx="490" cy="510" rx="20" ry="8" fill="${pathStroke}" opacity="0.4" />
+          <ellipse cx="430" cy="560" rx="24" ry="10" fill="${pathStroke}" opacity="0.4" />
+
+          <!-- 道端の発見オブジェクト群 -->
+          <!-- 1. きれいなお花 (左手前) -->
+          <g id="trail-obj-flower" class="trail-interactive-obj" style="cursor: pointer;">
+            <!-- 茎 -->
+            <path d="M 280 470 Q 282 490 285 505" stroke="#2d6a4f" stroke-width="3" fill="none" />
+            <!-- 花びら -->
+            <circle cx="280" cy="470" r="14" fill="#ff70a6" />
+            <circle cx="280" cy="470" r="5" fill="#ffd166" />
+            <circle cx="264" cy="468" r="8" fill="#ff9aa2" opacity="0.8" />
+            <circle cx="296" cy="468" r="8" fill="#ff9aa2" opacity="0.8" />
+            <circle cx="280" cy="454" r="8" fill="#ff9aa2" opacity="0.8" />
+          </g>
+
+          <!-- 2. 四つ葉のクローバー (右手前) -->
+          <g id="trail-obj-clover" class="trail-interactive-obj" style="cursor: pointer;">
+            <!-- 茎 -->
+            <path d="M 720 495 Q 718 510 722 525" stroke="#1b4332" stroke-width="2.5" fill="none" />
+            <!-- 4枚のハート葉っぱ -->
+            <g transform="translate(720, 495)">
+              <circle cx="-6" cy="-6" r="6" fill="#52b788" />
+              <circle cx="6" cy="-6" r="6" fill="#74c69d" />
+              <circle cx="-6" cy="6" r="6" fill="#74c69d" />
+              <circle cx="6" cy="6" r="6" fill="#52b788" />
+              <circle cx="0" cy="0" r="3" fill="#ffd166" />
+            </g>
+          </g>
+
+          <!-- 3. ひらひら飛ぶ蝶々 (空中) -->
+          <g id="trail-obj-butterfly" class="trail-interactive-obj" style="cursor: pointer;">
+            <path d="M 640 280 Q 648 266 658 276 Q 648 288 640 280 Z" fill="#ffd166" stroke="#f77f00" stroke-width="1.5" />
+            <path d="M 660 280 Q 668 266 678 276 Q 668 288 660 280 Z" fill="#ffd166" stroke="#f77f00" stroke-width="1.5" />
+            <ellipse cx="659" cy="280" rx="3" ry="8" fill="#4a5568" />
+          </g>
+
+          <!-- カラフルなお花たち (背景デコレーション) -->
+          <circle cx="315" cy="490" r="10" fill="#ffd166" />
+          <circle cx="315" cy="490" r="3" fill="#ff70a6" />
+          <circle cx="675" cy="470" r="12" fill="#ffb703" />
+          <circle cx="675" cy="470" r="4" fill="#ffffff" />
+          <circle cx="745" cy="510" r="11" fill="#f72585" />
+          <circle cx="745" cy="510" r="3.5" fill="#ffd166" />
+        </g>
+
+        <!-- 時間帯オーバーレイ -->
+        <rect width="1000" height="600" fill="${tint}" pointer-events="none" />
       </svg>
     `;
   },
 
-  // 7. こうえん (walk-park)
-  getWalkParkSVG() {
+  // 7. こうえん (walk-park) - 朝・昼・夕・夜の時間帯対応
+  getWalkParkSVG(timeOfDay = 'morning') {
+    let skyGrad = '';
+    let celestial = '';
+    let clouds = '';
+    let grassGrad = '';
+    let tint = 'rgba(0, 0, 0, 0)';
+
+    if (timeOfDay === 'morning') {
+      skyGrad = `
+        <stop offset="0%" stop-color="#90e0ef" />
+        <stop offset="100%" stop-color="#bde0fe" />
+      `;
+      celestial = `
+        <circle cx="850" cy="90" r="38" fill="#ffd166" opacity="0.95" filter="drop-shadow(0 0 14px #ffe6a7)" />
+      `;
+      clouds = `
+        <ellipse cx="200" cy="90" rx="70" ry="30" fill="#ffffff" opacity="0.85" />
+        <ellipse cx="500" cy="110" rx="80" ry="35" fill="#ffffff" opacity="0.85" />
+      `;
+      grassGrad = `
+        <stop offset="0%" stop-color="#80ed99" />
+        <stop offset="100%" stop-color="#57cc99" />
+      `;
+    } else if (timeOfDay === 'noon') {
+      skyGrad = `
+        <stop offset="0%" stop-color="#00b4d8" />
+        <stop offset="100%" stop-color="#90e0ef" />
+      `;
+      celestial = `
+        <circle cx="820" cy="80" r="42" fill="#ffb703" filter="drop-shadow(0 0 18px #ffd166)" />
+      `;
+      clouds = `
+        <ellipse cx="220" cy="80" rx="75" ry="34" fill="#ffffff" opacity="0.9" />
+        <ellipse cx="520" cy="100" rx="90" ry="40" fill="#ffffff" opacity="0.9" />
+      `;
+      grassGrad = `
+        <stop offset="0%" stop-color="#57cc99" />
+        <stop offset="100%" stop-color="#38a3a5" />
+      `;
+    } else if (timeOfDay === 'evening') {
+      skyGrad = `
+        <stop offset="0%" stop-color="#9d4edd" />
+        <stop offset="35%" stop-color="#f72585" />
+        <stop offset="75%" stop-color="#f77f00" />
+        <stop offset="100%" stop-color="#ffb703" />
+      `;
+      celestial = `
+        <circle cx="800" cy="140" r="48" fill="#f72585" filter="drop-shadow(0 0 20px #f77f00)" />
+      `;
+      clouds = `
+        <ellipse cx="200" cy="100" rx="70" ry="26" fill="#ffd166" opacity="0.6" />
+        <ellipse cx="500" cy="120" rx="80" ry="30" fill="#ff758f" opacity="0.6" />
+      `;
+      grassGrad = `
+        <stop offset="0%" stop-color="#b08968" />
+        <stop offset="100%" stop-color="#7f5539" />
+      `;
+      tint = 'rgba(240, 90, 20, 0.18)';
+    } else if (timeOfDay === 'night') {
+      skyGrad = `
+        <stop offset="0%" stop-color="#03071e" />
+        <stop offset="50%" stop-color="#10002b" />
+        <stop offset="100%" stop-color="#240046" />
+      `;
+      celestial = `
+        <!-- 金色の月 -->
+        <circle cx="840" cy="80" r="32" fill="#ffd166" filter="drop-shadow(0 0 16px #ffe66d)" />
+        <circle cx="850" cy="74" r="26" fill="#10002b" />
+        <!-- 星々 -->
+        <polygon points="150,70 152,75 157,76 153,80 154,85 150,82 146,85 147,80 143,76 148,75" fill="#ffffff" />
+        <polygon points="350,50 352,55 357,56 353,60 354,65 350,62 346,65 347,60 343,56 348,55" fill="#ffffff" opacity="0.9" />
+        <polygon points="680,90 682,95 687,96 683,100 684,105 680,102 676,105 677,100 673,96 678,95" fill="#ffffff" />
+        <!-- 公園の街灯あかり -->
+        <circle cx="780" cy="350" r="40" fill="#ffd166" opacity="0.25" />
+      `;
+      clouds = '';
+      grassGrad = `
+        <stop offset="0%" stop-color="#1b4332" />
+        <stop offset="100%" stop-color="#081c15" />
+      `;
+      tint = 'rgba(10, 15, 40, 0.38)';
+    }
+
     return `
       <svg viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid slice" class="bg-svg">
         <defs>
           <linearGradient id="parkSky" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#72efdd" />
-            <stop offset="100%" stop-color="#bde0fe" />
+            ${skyGrad}
           </linearGradient>
           <linearGradient id="parkGrass" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#80ed99" />
-            <stop offset="100%" stop-color="#57cc99" />
+            ${grassGrad}
           </linearGradient>
         </defs>
 
         <!-- 空 -->
         <rect width="1000" height="340" fill="url(#parkSky)" />
-        <circle cx="850" cy="100" r="40" fill="#ffb703" opacity="0.95" />
-        <ellipse cx="200" cy="90" rx="70" ry="30" fill="#ffffff" opacity="0.8" />
-        <ellipse cx="500" cy="110" rx="80" ry="35" fill="#ffffff" opacity="0.8" />
+        ${celestial}
+        ${clouds}
 
         <!-- 芝生 -->
         <rect y="340" width="1000" height="260" fill="url(#parkGrass)" />
@@ -923,6 +1184,9 @@ const SVGAssets = {
 
         <!-- 広場スペース（ボール遊びができる中央エリア） -->
         <ellipse cx="500" cy="490" rx="260" ry="80" fill="#95d5b2" opacity="0.5" />
+
+        <!-- 時間帯オーバーレイ -->
+        <rect width="1000" height="600" fill="${tint}" pointer-events="none" />
       </svg>
     `;
   },
