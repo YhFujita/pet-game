@@ -76,6 +76,7 @@ class GameApp {
           <div class="header-right">
             <button id="sound-btn" class="header-btn" title="おとの きりかえ">🔊</button>
             <button id="shop-return-btn" class="header-btn" title="ぺっとしょっぷへ">🏠 ぺっとしょっぷ</button>
+            <button id="home-return-btn" class="header-btn home-return-btn hidden" title="おうちへ かえる">🏠 おうちへ かえる</button>
           </div>
         </header>
 
@@ -151,6 +152,14 @@ class GameApp {
       this.confirmGoToShop();
     };
 
+    const homeBtn = document.getElementById('home-return-btn');
+    if (homeBtn) {
+      homeBtn.onclick = () => {
+        soundSystem.playClick();
+        this.changeScene('living');
+      };
+    }
+
     // アクションバーのボタンイベント委譲
     const actionBar = document.getElementById('action-bar');
     actionBar.onclick = (e) => {
@@ -175,6 +184,7 @@ class GameApp {
     const overlay = document.getElementById('interactive-overlay');
     const actionBar = document.getElementById('action-bar');
     const shopBtn = document.getElementById('shop-return-btn');
+    const homeBtn = document.getElementById('home-return-btn');
 
     overlay.innerHTML = ''; // インタラクティブ要素クリア
 
@@ -182,11 +192,13 @@ class GameApp {
     if (sceneName === 'shop_exterior' || sceneName === 'shop_interior') {
       actionBar.classList.add('hidden');
       shopBtn.classList.add('hidden');
+      if (homeBtn) homeBtn.classList.add('hidden');
       petContainer.classList.add('hidden');
       petContainer.innerHTML = '';
     } else if (sceneName === 'living') {
       actionBar.classList.remove('hidden');
       shopBtn.classList.remove('hidden');
+      if (homeBtn) homeBtn.classList.add('hidden');
       petContainer.classList.remove('hidden');
       petContainer.style.left = '50%';
       petContainer.style.top = '65%';
@@ -195,9 +207,10 @@ class GameApp {
         this.pet.mount(petContainer);
       }
     } else {
-      // リビング以外の部屋では部屋専用UIに集中させるためアクションバーは隠す
+      // リビング以外の部屋では部屋専用UIに集中させるためアクションバーは隠し、おうちへかえるボタンを表示
       actionBar.classList.add('hidden');
       shopBtn.classList.add('hidden');
+      if (homeBtn) homeBtn.classList.remove('hidden');
       petContainer.classList.remove('hidden');
 
       if (sceneName === 'bath') {
@@ -708,13 +721,21 @@ class GameApp {
     this.setGuideText('ボールを タップして なげてね！');
     const overlay = document.getElementById('interactive-overlay');
 
-    overlay.innerHTML = `
-      <div id="play-ball" class="throwable-ball">
-        ${SVGAssets.getBallSVG()}
-      </div>
-    `;
+    // すでにボールがあれば位置を戻す、なければ新規追加
+    let ball = document.getElementById('play-ball');
+    if (!ball) {
+      ball = document.createElement('div');
+      ball.id = 'play-ball';
+      ball.className = 'throwable-ball';
+      ball.innerHTML = SVGAssets.getBallSVG();
+      overlay.appendChild(ball);
+    } else {
+      ball.style.transition = '';
+      ball.style.left = '50%';
+      ball.style.top = '72%';
+      ball.style.transform = 'translate(-50%, -50%)';
+    }
 
-    const ball = document.getElementById('play-ball');
     ball.onclick = (e) => {
       e.stopPropagation();
       soundSystem.playBallBounce();
@@ -973,15 +994,26 @@ class GameApp {
     const overlay = document.getElementById('interactive-overlay');
 
     overlay.innerHTML = `
+      <!-- 右上の戻るボタン -->
       <button id="btn-leave-walk" class="leave-room-btn">
         🏠 おうちへ かえる
       </button>
+
+      <!-- 下部のおうちへかえるボタン -->
+      <div class="walk-bottom-nav">
+        <button id="btn-leave-walk-bottom" class="big-action-button btn-go-home">
+          🏠 おうちへ かえる
+        </button>
+      </div>
     `;
 
-    document.getElementById('btn-leave-walk').onclick = () => {
+    const goHome = () => {
       soundSystem.playClick();
       this.changeScene('living');
     };
+
+    document.getElementById('btn-leave-walk').onclick = goHome;
+    document.getElementById('btn-leave-walk-bottom').onclick = goHome;
   }
 
   // 公園シーンのセットアップ
@@ -990,23 +1022,33 @@ class GameApp {
     const overlay = document.getElementById('interactive-overlay');
 
     overlay.innerHTML = `
-      <button id="btn-park-ball" class="big-action-button" style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);">
-        🎾 ボールで あそぶ！
-      </button>
-
+      <!-- 右上の戻るボタン -->
       <button id="btn-leave-park" class="leave-room-btn">
         🏠 おうちへ かえる
       </button>
+
+      <!-- 下部のアクションボタンバー -->
+      <div class="walk-bottom-nav">
+        <button id="btn-park-ball" class="big-action-button">
+          🎾 ボールで あそぶ！
+        </button>
+        <button id="btn-leave-park-bottom" class="big-action-button btn-go-home">
+          🏠 おうちへ かえる
+        </button>
+      </div>
     `;
 
     document.getElementById('btn-park-ball').onclick = () => {
       this.playBallGame();
     };
 
-    document.getElementById('btn-leave-park').onclick = () => {
+    const goHome = () => {
       soundSystem.playClick();
       this.changeScene('living');
     };
+
+    document.getElementById('btn-leave-park').onclick = goHome;
+    document.getElementById('btn-leave-park-bottom').onclick = goHome;
   }
 
   // ==========================================

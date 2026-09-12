@@ -721,12 +721,43 @@ body {
   font-weight: 800;
   cursor: pointer;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-  z-index: 12;
+  z-index: 20;
   font-family: inherit;
+  transition: transform 0.15s ease, background 0.15s ease;
 }
 
-.leave-room-btn:hover {
+.leave-room-btn:hover, .leave-room-btn:active {
+  transform: translateY(2px);
   background: #fff8f0;
+}
+
+/* ヘッダーのおうちへかえるボタン */
+.home-return-btn {
+  background: linear-gradient(135deg, #ff9f1c, #ff70a6) !important;
+  color: #ffffff !important;
+  border-color: #ffffff !important;
+  box-shadow: 0 4px 10px rgba(255, 112, 166, 0.3) !important;
+}
+
+.home-return-btn:hover, .home-return-btn:active {
+  background: linear-gradient(135deg, #f77f00, #ff477e) !important;
+}
+
+/* 散歩・公園の下部アクションバー */
+.walk-bottom-nav {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 16px;
+  z-index: 20;
+  pointer-events: auto;
+}
+
+.btn-go-home {
+  background: linear-gradient(135deg, #ff9f1c, #ff70a6) !important;
+  box-shadow: 0 8px 20px rgba(255, 159, 28, 0.4) !important;
 }
 
 /* 洗面所・トイレのホットスポットボタン */
