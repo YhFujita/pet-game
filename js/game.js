@@ -83,11 +83,11 @@ class GameApp {
         <!-- ヘッダーUI (時計・時間帯・設定) -->
         <header id="game-header">
           <div class="header-left">
-            <div id="time-badge" class="time-badge">
+            <div id="time-badge" class="time-badge hidden">
               <span id="time-icon">🍳</span>
               <span id="time-text">あさごはん の じかん</span>
             </div>
-            <div id="day-badge" class="day-badge">1にちめ</div>
+            <div id="day-badge" class="day-badge hidden">1にちめ</div>
           </div>
           <div class="header-right">
             <button id="sound-btn" class="header-btn" title="おとの きりかえ">🔊</button>
@@ -201,6 +201,8 @@ class GameApp {
     const actionBar = document.getElementById('action-bar');
     const shopBtn = document.getElementById('shop-return-btn');
     const homeBtn = document.getElementById('home-return-btn');
+    const timeBadge = document.getElementById('time-badge');
+    const dayBadge = document.getElementById('day-badge');
 
     overlay.innerHTML = ''; // インタラクティブ要素クリア
 
@@ -209,12 +211,16 @@ class GameApp {
       actionBar.classList.add('hidden');
       shopBtn.classList.add('hidden');
       if (homeBtn) homeBtn.classList.add('hidden');
+      if (timeBadge) timeBadge.classList.add('hidden');
+      if (dayBadge) dayBadge.classList.add('hidden');
       petContainer.classList.add('hidden');
       petContainer.innerHTML = '';
     } else if (sceneName === 'living') {
       actionBar.classList.remove('hidden');
       shopBtn.classList.remove('hidden');
       if (homeBtn) homeBtn.classList.add('hidden');
+      if (timeBadge) timeBadge.classList.remove('hidden');
+      if (dayBadge) dayBadge.classList.remove('hidden');
       petContainer.classList.remove('hidden');
       petContainer.style.left = '50%';
       petContainer.style.top = '65%';
@@ -223,10 +229,13 @@ class GameApp {
         this.pet.mount(petContainer);
       }
     } else {
-      // リビング以外の部屋では部屋専用UIに集中させるためアクションバーは隠し、おうちへかえるボタンを表示
+      // リビング以外の部屋・屋外では部屋専用UIに集中させるためアクションバーは隠す
+      // 戻るボタンは画面右上の専用ボタンに統一するためヘッダーのhomeBtnはhiddenを維持
       actionBar.classList.add('hidden');
       shopBtn.classList.add('hidden');
-      if (homeBtn) homeBtn.classList.remove('hidden');
+      if (homeBtn) homeBtn.classList.add('hidden');
+      if (timeBadge) timeBadge.classList.remove('hidden');
+      if (dayBadge) dayBadge.classList.remove('hidden');
       petContainer.classList.remove('hidden');
 
       if (sceneName === 'bath') {
@@ -355,12 +364,23 @@ class GameApp {
 
     if (sched.id === 'breakfast' || sched.id === 'lunch' || sched.id === 'dinner') {
       if (foodBtn) foodBtn.classList.add('act-highlight');
-      this.setGuideText(`${sched.name}の じかんだよ！ ごはんを あげてね！`);
     } else if (sched.id === 'snack_morning' || sched.id === 'snack_afternoon') {
       if (snackBtn) snackBtn.classList.add('act-highlight');
-      this.setGuideText(`おやつの じかんだよ！ おいしい おやつを あげてね！`);
     } else if (sched.id === 'sleep') {
       if (sleepBtn) sleepBtn.classList.add('act-highlight');
+    }
+
+    // ガイドメッセージの自動更新は、ペットを飼っていてリビングにいる時のみ行う
+    // (ショップや洗面所・公園など各部屋では専用のメッセージを優先する)
+    if (!this.pet || this.currentScene !== 'living') {
+      return;
+    }
+
+    if (sched.id === 'breakfast' || sched.id === 'lunch' || sched.id === 'dinner') {
+      this.setGuideText(`${sched.name}の じかんだよ！ ごはんを あげてね！`);
+    } else if (sched.id === 'snack_morning' || sched.id === 'snack_afternoon') {
+      this.setGuideText(`おやつの じかんだよ！ おいしい おやつを あげてね！`);
+    } else if (sched.id === 'sleep') {
       this.setGuideText(`よるだよ。はみがきをして、ねんね しようね！`);
     } else {
       this.setGuideText(`じゆうじかんだよ。おさんぽ や ボールあそび を しよう！`);
@@ -771,6 +791,7 @@ class GameApp {
       ball.innerHTML = SVGAssets.getBallSVG();
       overlay.appendChild(ball);
     } else {
+      ball.style.display = '';
       ball.style.transition = '';
       ball.style.left = '50%';
       ball.style.top = '72%';
@@ -779,31 +800,41 @@ class GameApp {
 
     ball.onclick = (e) => {
       e.stopPropagation();
-      soundSystem.playBallBounce();
-
-      // ボールがポンと遠くへ飛ぶ
-      const targetX = Math.random() > 0.5 ? 75 : 25;
-      const targetY = 55;
-
-      ball.style.transition = 'all 0.6s cubic-bezier(0.25, 1, 0.5, 1)';
-      ball.style.left = `${targetX}%`;
-      ball.style.top = `${targetY}%`;
-      ball.style.transform = 'scale(0.8) rotate(360deg)';
-
-      this.setGuideText(`${this.pet.name}が ボールを とりにいくよ！`);
-
-      // ペットがダッシュしてボールを拾いに行く
-      setTimeout(() => {
-        this.pet.fetchBall(targetX, targetY, () => {
-          this.setGuideText('ナイスキャッチ！ ボールを もってきてくれたよ！ もういっかい なげてね！');
-          // ボールをペットの足元にポンと戻して、何度でも続けて投げられるようにする！
-          ball.style.transition = 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)';
-          ball.style.left = '50%';
-          ball.style.top = '72%';
-          ball.style.transform = 'translate(-50%, -50%) scale(1)';
-        });
-      }, 500);
+      this.throwBall();
     };
+  }
+
+  // ボールを投げてペットが拾うアクション
+  throwBall() {
+    if (this.pet.isMoving || this.pet.isEating) return;
+
+    const ball = document.getElementById('play-ball');
+    if (!ball) return;
+
+    soundSystem.playBallBounce();
+
+    // ボールがポンと遠くへ飛ぶ
+    const targetX = Math.random() > 0.5 ? 75 : 25;
+    const targetY = 55;
+
+    ball.style.transition = 'all 0.6s cubic-bezier(0.25, 1, 0.5, 1)';
+    ball.style.left = `${targetX}%`;
+    ball.style.top = `${targetY}%`;
+    ball.style.transform = 'scale(0.8) rotate(360deg)';
+
+    this.setGuideText(`${this.pet.name}が ボールを とりにいくよ！`);
+
+    // ペットがダッシュしてボールを拾いに行く
+    setTimeout(() => {
+      this.pet.fetchBall(targetX, targetY, () => {
+        this.setGuideText('ナイスキャッチ！ ボールを もってきてくれたよ！ もういっかい なげてね！');
+        // ボールをペットの足元にポンと戻して、何度でも続けて投げられるようにする！
+        ball.style.transition = 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)';
+        ball.style.left = '50%';
+        ball.style.top = '72%';
+        ball.style.transform = 'translate(-50%, -50%) scale(1)';
+      });
+    }, 500);
   }
 
   // ==========================================
@@ -1043,27 +1074,17 @@ class GameApp {
       <button id="btn-leave-walk" class="leave-room-btn">
         🏠 おうちへ かえる
       </button>
-
-      <!-- 下部のおうちへかえるボタン -->
-      <div class="walk-bottom-nav">
-        <button id="btn-leave-walk-bottom" class="big-action-button btn-go-home">
-          🏠 おうちへ かえる
-        </button>
-      </div>
     `;
 
-    const goHome = () => {
+    document.getElementById('btn-leave-walk').onclick = () => {
       soundSystem.playClick();
       this.changeScene('living');
     };
-
-    document.getElementById('btn-leave-walk').onclick = goHome;
-    document.getElementById('btn-leave-walk-bottom').onclick = goHome;
   }
 
   // 公園シーンのセットアップ
   setupWalkParkScene() {
-    this.setGuideText('こうえん に ついたよ！ ボールあそび や すべりだい を たのしもう！');
+    this.setGuideText('こうえん に ついたよ！ ボール や すべりだい で あそぼう！');
     const overlay = document.getElementById('interactive-overlay');
 
     overlay.innerHTML = `
@@ -1077,28 +1098,22 @@ class GameApp {
         <div class="hotspot-bubble slide-bubble">🛝 すべりだい</div>
       </div>
 
-      <!-- 下部のアクションボタンバー -->
-      <div class="walk-bottom-nav">
-        <button id="btn-park-ball" class="big-action-button">
-          🎾 ボールで あそぶ！
-        </button>
-        <button id="btn-park-slide" class="big-action-button btn-slide">
-          🛝 すべりだい！
-        </button>
-        <button id="btn-leave-park-bottom" class="big-action-button btn-go-home">
-          🏠 おうちへ かえる
-        </button>
+      <!-- 最初から描画するボール -->
+      <div id="play-ball" class="throwable-ball" title="ボール">
+        ${SVGAssets.getBallSVG()}
       </div>
     `;
 
-    document.getElementById('btn-park-ball').onclick = () => {
-      this.playBallGame();
-    };
+    // ボールをクリックして遊ぶ
+    const ball = document.getElementById('play-ball');
+    if (ball) {
+      ball.onclick = (e) => {
+        e.stopPropagation();
+        this.throwBall();
+      };
+    }
 
-    document.getElementById('btn-park-slide').onclick = () => {
-      this.playSlideGame();
-    };
-
+    // すべり台ホットスポットをクリックして遊ぶ
     const slideHotspot = document.getElementById('slide-hotspot');
     if (slideHotspot) {
       slideHotspot.onclick = () => {
@@ -1106,22 +1121,20 @@ class GameApp {
       };
     }
 
-    const goHome = () => {
+    // 右上の戻るボタンでおうちへ帰る
+    document.getElementById('btn-leave-park').onclick = () => {
       soundSystem.playClick();
       this.changeScene('living');
     };
-
-    document.getElementById('btn-leave-park').onclick = goHome;
-    document.getElementById('btn-leave-park-bottom').onclick = goHome;
   }
 
   // すべり台で遊ぶアクション
   playSlideGame() {
     if (this.pet.isMoving || this.pet.isEating) return;
 
-    // もしボールが出ていれば片付ける
+    // もしボールが出ていれば一時的に隠す
     const ball = document.getElementById('play-ball');
-    if (ball) ball.remove();
+    if (ball) ball.style.display = 'none';
 
     this.pet.isMoving = true;
     const petContainer = document.getElementById('pet-container');
@@ -1185,6 +1198,16 @@ class GameApp {
                 petContainer.style.left = '50%';
                 petContainer.style.top = '65%';
                 this.pet.isMoving = false;
+
+                // ボールを再表示（いつでも続けて遊べるように）
+                const currentBall = document.getElementById('play-ball');
+                if (currentBall) {
+                  currentBall.style.display = '';
+                  currentBall.style.transition = '';
+                  currentBall.style.left = '50%';
+                  currentBall.style.top = '72%';
+                  currentBall.style.transform = 'translate(-50%, -50%)';
+                }
               }, 1000);
             }, 750);
           }, 600);
