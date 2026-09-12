@@ -182,10 +182,12 @@ class GameApp {
     if (sceneName === 'shop_exterior' || sceneName === 'shop_interior') {
       actionBar.classList.add('hidden');
       shopBtn.classList.add('hidden');
+      petContainer.classList.add('hidden');
       petContainer.innerHTML = '';
     } else if (sceneName === 'living') {
       actionBar.classList.remove('hidden');
       shopBtn.classList.remove('hidden');
+      petContainer.classList.remove('hidden');
       petContainer.style.left = '50%';
       petContainer.style.top = '65%';
       petContainer.style.transform = 'translate(-50%, -50%) scale(1)';
@@ -196,6 +198,7 @@ class GameApp {
       // リビング以外の部屋では部屋専用UIに集中させるためアクションバーは隠す
       actionBar.classList.add('hidden');
       shopBtn.classList.add('hidden');
+      petContainer.classList.remove('hidden');
 
       if (sceneName === 'bath') {
         petContainer.style.left = '64%';
@@ -341,11 +344,33 @@ class GameApp {
       </div>
     `;
 
-    const enterBtn = document.getElementById('enter-shop-btn');
-    enterBtn.onclick = () => {
-      soundSystem.playDoorbell();
+    const enterShop = () => {
+      try {
+        soundSystem.playDoorbell();
+      } catch (e) {
+        console.warn('Audio error:', e);
+      }
       this.changeScene('shop_interior');
     };
+
+    const enterBtn = document.getElementById('enter-shop-btn');
+    if (enterBtn) {
+      enterBtn.onclick = (e) => {
+        e.stopPropagation();
+        enterShop();
+      };
+      enterBtn.ontouchstart = (e) => {
+        e.stopPropagation();
+        enterShop();
+      };
+    }
+
+    // 背景SVGのドアもクリック・タップ可能にする
+    const door = document.getElementById('shop-door-rect');
+    if (door) {
+      door.style.cursor = 'pointer';
+      door.onclick = () => enterShop();
+    }
   }
 
   // ==========================================
