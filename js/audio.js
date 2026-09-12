@@ -7,6 +7,11 @@ class SoundSystem {
   constructor() {
     this.ctx = null;
     this.isMuted = false;
+    this.bgmGain = null;
+    this.currentBgmTheme = null;
+    this.bgmTimer = null;
+    this.bgmLoopEndTime = 0;
+    this.bgmVolume = 0.16; // 心地よいBGM音量
   }
 
   // オーディオコンテキストの初期化 (ユーザー操作時に呼び出し)
@@ -15,6 +20,9 @@ class SoundSystem {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       if (AudioContext) {
         this.ctx = new AudioContext();
+        this.bgmGain = this.ctx.createGain();
+        this.bgmGain.gain.setValueAtTime(this.isMuted ? 0 : this.bgmVolume, this.ctx.currentTime);
+        this.bgmGain.connect(this.ctx.destination);
       }
     }
     if (this.ctx && this.ctx.state === 'suspended') {
@@ -25,6 +33,12 @@ class SoundSystem {
   // ミュート切り替え
   toggleMute() {
     this.isMuted = !this.isMuted;
+    if (this.bgmGain && this.ctx) {
+      const targetGain = this.isMuted ? 0 : this.bgmVolume;
+      this.bgmGain.gain.cancelScheduledValues(this.ctx.currentTime);
+      this.bgmGain.gain.setValueAtTime(this.bgmGain.gain.value, this.ctx.currentTime);
+      this.bgmGain.gain.linearRampToValueAtTime(targetGain, this.ctx.currentTime + 0.1);
+    }
     return this.isMuted;
   }
 
@@ -448,6 +462,220 @@ class SoundSystem {
       osc.start(start);
       osc.stop(start + 0.08);
     }
+  }
+
+  // ==========================================
+  // BGMシーケンサー (完全オリジナル・プログラマブルBGM)
+  // ==========================================
+
+  // 単音の生成 (トイピアノ・マリンバ・木琴風の温かい音)
+  playTone(freq, startTime, duration = 0.28, type = 'triangle', peakGain = 0.16, decay = 0.25) {
+    if (!this.ctx || !this.bgmGain) return;
+
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, startTime);
+
+    gain.gain.setValueAtTime(0.0001, startTime);
+    gain.gain.linearRampToValueAtTime(peakGain, startTime + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + Math.max(duration, decay));
+
+    osc.connect(gain);
+    gain.connect(this.bgmGain);
+
+    osc.start(startTime);
+    osc.stop(startTime + Math.max(duration, decay) + 0.05);
+  }
+
+  // BGMの再生開始 (テーマ別: 'shop' | 'living' | 'outdoor')
+  startBGM(theme = 'living') {
+    this.init();
+    if (!this.ctx || !this.bgmGain) return;
+
+    if (this.currentBgmTheme === theme) return;
+
+    this.stopBGM();
+    this.currentBgmTheme = theme;
+
+    this.bgmLoopEndTime = this.ctx.currentTime + 0.05;
+    this.scheduleNextLoop(theme);
+
+    this.bgmTimer = setInterval(() => {
+      if (!this.ctx || !this.currentBgmTheme) return;
+      if (this.bgmLoopEndTime - this.ctx.currentTime < 2.5) {
+        this.scheduleNextLoop(this.currentBgmTheme);
+      }
+    }, 1000);
+  }
+
+  // BGMの停止
+  stopBGM() {
+    if (this.bgmTimer) {
+      clearInterval(this.bgmTimer);
+      this.bgmTimer = null;
+    }
+    this.currentBgmTheme = null;
+  }
+
+  // ループスケジュール
+  scheduleNextLoop(theme) {
+    if (!this.ctx) return;
+    const startTime = Math.max(this.bgmLoopEndTime, this.ctx.currentTime + 0.05);
+
+    if (theme === 'shop') {
+      this.bgmLoopEndTime = this.scheduleShopBGM(startTime);
+    } else if (theme === 'outdoor') {
+      this.bgmLoopEndTime = this.scheduleOutdoorBGM(startTime);
+    } else {
+      this.bgmLoopEndTime = this.scheduleLivingBGM(startTime);
+    }
+  }
+
+  // ① おうち・リビングのテーマ曲 (Cメジャー、ほのぼのトイピアノ)
+  scheduleLivingBGM(t0) {
+    const b = 0.57; // 1拍 (BPM 105)
+    const F = {
+      C3: 130.81, E3: 164.81, F3: 174.61, G3: 196.00, A3: 220.00, B3: 246.94,
+      C4: 261.63, D4: 293.66, E4: 329.63, F4: 349.23, G4: 392.00, A4: 440.00, B4: 493.88,
+      C5: 523.25, D5: 587.33, E5: 659.25, F5: 698.46, G5: 783.99, A5: 880.00
+    };
+
+    // 4小節の伴奏 (ベース & アルペジオ)
+    const chords = [
+      { bass: F.C3, arp: [F.G3, F.C4, F.E4, F.G4] }, // C
+      { bass: F.G3, arp: [F.D4, F.G4, F.B4, F.D5] }, // G
+      { bass: F.A3, arp: [F.E4, F.A4, F.C5, F.E5] }, // Am
+      { bass: F.F3, arp: [F.C4, F.F4, F.A4, F.C5] }  // F
+    ];
+
+    chords.forEach((chord, barIdx) => {
+      const barStart = t0 + barIdx * 4 * b;
+      // ベース (1拍目・3拍目)
+      this.playTone(chord.bass, barStart, b * 0.8, 'sine', 0.22, 0.4);
+      this.playTone(chord.bass, barStart + 2 * b, b * 0.8, 'sine', 0.18, 0.4);
+      // アルペジオ (4拍)
+      chord.arp.forEach((note, beatIdx) => {
+        this.playTone(note, barStart + beatIdx * b + b * 0.5, b * 0.4, 'triangle', 0.08, 0.2);
+      });
+    });
+
+    // 4小節のメロディ (トイピアノ)
+    const melody = [
+      // 小節1: ミ〜 ソ〜 ミレ ド〜
+      { n: F.E5, t: 0, d: 0.9 }, { n: F.G5, t: 1, d: 0.9 },
+      { n: F.E5, t: 2, d: 0.45 }, { n: F.D5, t: 2.5, d: 0.45 }, { n: F.C5, t: 3, d: 0.9 },
+      // 小節2: レ〜 ソ〜 ファ〜 ミ〜
+      { n: F.D5, t: 4, d: 0.9 }, { n: F.G5, t: 5, d: 0.9 },
+      { n: F.F5, t: 6, d: 0.9 }, { n: F.E5, t: 7, d: 0.9 },
+      // 小節3: ド〜 ミ〜 ラ〜 ソ〜
+      { n: F.C5, t: 8, d: 0.9 }, { n: F.E5, t: 9, d: 0.9 },
+      { n: F.A5, t: 10, d: 0.9 }, { n: F.G5, t: 11, d: 0.9 },
+      // 小節4: ファ〜 ミレ ド〜〜
+      { n: F.F5, t: 12, d: 0.9 }, { n: F.E5, t: 13, d: 0.45 },
+      { n: F.D5, t: 13.5, d: 0.45 }, { n: F.C5, t: 14, d: 1.8 }
+    ];
+
+    melody.forEach(m => {
+      this.playTone(m.n, t0 + m.t * b, m.d * b, 'sine', 0.16, 0.35);
+    });
+
+    return t0 + 16 * b; // 16拍分の長さ
+  }
+
+  // ② ペットショップのテーマ曲 (Fメジャー、軽快な木琴マーチ)
+  scheduleShopBGM(t0) {
+    const b = 0.50; // 1拍 (BPM 120)
+    const F = {
+      F3: 174.61, C3: 130.81, Bb3: 233.08,
+      F4: 349.23, A4: 440.00, C5: 523.25, D5: 587.33, E5: 659.25,
+      F5: 698.46, G5: 783.99, A5: 880.00, Bb5: 932.33, C6: 1046.50
+    };
+
+    const chords = [
+      { bass: F.F3, arp: [F.A4, F.C5] },  // F
+      { bass: F.C3, arp: [F.G5, F.C5] },  // C
+      { bass: F.Bb3, arp: [F.D5, F.F5] }, // Bb
+      { bass: F.C3, arp: [F.E5, F.G5] }   // C
+    ];
+
+    chords.forEach((chord, barIdx) => {
+      const barStart = t0 + barIdx * 4 * b;
+      for (let i = 0; i < 4; i++) {
+        this.playTone(chord.bass, barStart + i * b, b * 0.4, 'triangle', 0.18, 0.2);
+        this.playTone(chord.arp[i % 2], barStart + i * b + b * 0.5, b * 0.3, 'sine', 0.08, 0.15);
+      }
+    });
+
+    // 軽快なメロディ
+    const melody = [
+      // 小節1
+      { n: F.A5, t: 0, d: 0.45 }, { n: F.C6, t: 0.5, d: 0.45 },
+      { n: F.A5, t: 1, d: 0.9 }, { n: F.F5, t: 2, d: 0.9 }, { n: F.G5, t: 3, d: 0.9 },
+      // 小節2
+      { n: F.E5, t: 4, d: 0.45 }, { n: F.G5, t: 4.5, d: 0.45 },
+      { n: F.E5, t: 5, d: 0.9 }, { n: F.C5, t: 6, d: 0.9 }, { n: F.D5, t: 7, d: 0.9 },
+      // 小節3
+      { n: F.D5, t: 8, d: 0.45 }, { n: F.F5, t: 8.5, d: 0.45 },
+      { n: F.Bb5, t: 9, d: 0.9 }, { n: F.A5, t: 10, d: 0.9 }, { n: F.G5, t: 11, d: 0.9 },
+      // 小節4
+      { n: F.F5, t: 12, d: 0.9 }, { n: F.G5, t: 13, d: 0.9 }, { n: F.F5, t: 14, d: 1.8 }
+    ];
+
+    melody.forEach(m => {
+      this.playTone(m.n, t0 + m.t * b, m.d * b, 'triangle', 0.18, 0.25);
+    });
+
+    return t0 + 16 * b;
+  }
+
+  // ③ お外・公園のテーマ曲 (Gメジャー、スキップ調の明るいステップ)
+  scheduleOutdoorBGM(t0) {
+    const b = 0.52; // 1拍 (BPM 115)
+    const F = {
+      G3: 196.00, D3: 146.83, E3: 164.81, C3: 130.81,
+      G4: 392.00, B4: 493.88, D5: 587.33, E5: 659.25, Fs5: 739.99,
+      G5: 783.99, A5: 880.00, B5: 987.77, C6: 1046.50
+    };
+
+    const chords = [
+      { bass: F.G3, high: F.B4 }, // G
+      { bass: F.D3, high: F.Fs5 }, // D
+      { bass: F.E3, high: F.G4 }, // Em
+      { bass: F.C3, high: F.E5 }  // C
+    ];
+
+    chords.forEach((chord, barIdx) => {
+      const barStart = t0 + barIdx * 4 * b;
+      // 弾むウォーキングベース
+      this.playTone(chord.bass, barStart, b * 0.5, 'sine', 0.2, 0.3);
+      this.playTone(chord.high, barStart + b, b * 0.3, 'triangle', 0.08, 0.2);
+      this.playTone(chord.bass, barStart + 2 * b, b * 0.5, 'sine', 0.2, 0.3);
+      this.playTone(chord.high, barStart + 3 * b, b * 0.3, 'triangle', 0.08, 0.2);
+    });
+
+    // スキップするメロディ
+    const melody = [
+      // 小節1
+      { n: F.D5, t: 0, d: 0.9 }, { n: F.G5, t: 1, d: 0.45 },
+      { n: F.A5, t: 1.5, d: 0.45 }, { n: F.B5, t: 2, d: 0.9 }, { n: F.G5, t: 3, d: 0.9 },
+      // 小節2
+      { n: F.A5, t: 4, d: 0.9 }, { n: F.D5, t: 5, d: 0.45 },
+      { n: F.E5, t: 5.5, d: 0.45 }, { n: F.Fs5, t: 6, d: 0.9 }, { n: F.A5, t: 7, d: 0.9 },
+      // 小節3
+      { n: F.G5, t: 8, d: 0.9 }, { n: F.B5, t: 9, d: 0.45 },
+      { n: F.C6, t: 9.5, d: 0.45 }, { n: F.B5, t: 10, d: 0.9 }, { n: F.G5, t: 11, d: 0.9 },
+      // 小節4
+      { n: F.E5, t: 12, d: 0.45 }, { n: F.G5, t: 12.5, d: 0.45 },
+      { n: F.A5, t: 13, d: 0.9 }, { n: F.G5, t: 14, d: 1.8 }
+    ];
+
+    melody.forEach(m => {
+      this.playTone(m.n, t0 + m.t * b, m.d * b, 'sine', 0.17, 0.3);
+    });
+
+    return t0 + 16 * b;
   }
 }
 

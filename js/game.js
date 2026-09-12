@@ -54,6 +54,22 @@ class GameApp {
     soundSystem.init();
     this.renderLayout();
     this.changeScene('shop_exterior');
+
+    // ブラウザの音声自動再生ポリシーに対応: 初回タップ/クリック時にBGMを開始
+    const startAudioOnFirstInteraction = () => {
+      soundSystem.init();
+      if (this.currentScene === 'shop_exterior' || this.currentScene === 'shop_interior') {
+        soundSystem.startBGM('shop');
+      } else if (this.currentScene === 'walk_trail' || this.currentScene === 'walk_park') {
+        soundSystem.startBGM('outdoor');
+      } else {
+        soundSystem.startBGM('living');
+      }
+      window.removeEventListener('pointerdown', startAudioOnFirstInteraction);
+      window.removeEventListener('keydown', startAudioOnFirstInteraction);
+    };
+    window.addEventListener('pointerdown', startAudioOnFirstInteraction, { once: true });
+    window.addEventListener('keydown', startAudioOnFirstInteraction, { once: true });
   }
 
   // 基本画面レイアウトの描画
@@ -272,6 +288,15 @@ class GameApp {
         bgContainer.innerHTML = SVGAssets.getWalkParkSVG();
         this.setupWalkParkScene();
         break;
+    }
+
+    // シーンに合わせた専用BGMの切り替え
+    if (sceneName === 'shop_exterior' || sceneName === 'shop_interior') {
+      soundSystem.startBGM('shop');
+    } else if (sceneName === 'walk_trail' || sceneName === 'walk_park') {
+      soundSystem.startBGM('outdoor');
+    } else {
+      soundSystem.startBGM('living');
     }
 
     this.updateTimeDisplay();
@@ -1216,6 +1241,7 @@ class GameApp {
     }
 
     this.setGuideText(`${this.pet.name}が ベッドに はいったよ。おやすみなさい…💤`);
+    soundSystem.stopBGM(); // おやすみ中はBGMを停止してオルゴールを際立たせる
     this.pet.sleepAction();
     soundSystem.playLullaby();
 
