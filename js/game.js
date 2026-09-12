@@ -396,14 +396,14 @@ class GameApp {
 
     if (sched.phase === 'meal') {
       // ごはんの時間:
-      // ごはん・つぎのじかんへ は有効、おやつ・おふろ・おさんぽ・ねんね・トイレ・あそぶ は非表示
+      // ごはん・トイレと歯磨き は有効、つぎのじかんへ・おやつ・おふろ・おさんぽ・ねんね・あそぶ は非表示
       setVisible(foodBtn, true);
-      setVisible(nextBtn, true);
+      setVisible(toiletBtn, true);
+      setVisible(nextBtn, false);
       setVisible(snackBtn, false);
       setVisible(bathBtn, false);
       setVisible(walkBtn, false);
       setVisible(sleepBtn, false);
-      setVisible(toiletBtn, false);
       setVisible(ballBtn, false);
 
       if (foodBtn) foodBtn.classList.add('act-highlight');
@@ -1187,7 +1187,7 @@ class GameApp {
     this.attachTrailObjectEvents();
   }
 
-  // お散歩でてくてく歩くアクション（道が動き、足音が鳴る）
+  // お散歩でてくてく歩くアクション（地面は揺らさず、ペットが足踏みして歩く）
   actionWalkStep() {
     if (this.pet.isMoving) return;
     this.pet.isMoving = true;
@@ -1198,107 +1198,162 @@ class GameApp {
 
     if (wrapper) wrapper.classList.add('pet-running');
     this.pet.setExpression('happy');
-    this.setGuideText('てくてく、てくてく… たのしい おさんぽ！');
+    this.setGuideText('てくてく、てくてく… たのしい おさんぽ！🐾');
 
-    // 背景SVGの小道・木々・草花グループをスクロールアニメーション
-    const movingWorld = document.getElementById('trail-moving-world');
-    if (movingWorld) {
-      movingWorld.classList.remove('trail-scroll-anim');
-      void movingWorld.offsetWidth; // リフロー
-      movingWorld.classList.add('trail-scroll-anim');
-    }
-
-    // 2歩目の足音
+    // 2歩目・3歩目の足音
     setTimeout(() => {
       soundSystem.playStep();
-    }, 400);
+    }, 350);
+    setTimeout(() => {
+      soundSystem.playStep();
+    }, 700);
 
-    // 0.8秒後に歩行停止、発見のワクワク演出
+    // 1秒後に歩行停止、周囲を見渡してヒントを表示
     setTimeout(() => {
       if (wrapper) wrapper.classList.remove('pet-running');
       this.pet.isMoving = false;
 
       const hints = [
-        'ちょうちょ が ひらひら とんでるよ！ タップしてみてね！',
-        'きれいな おはな が さいているよ！ タップしてみてね！',
-        'よつばの クローバー が あるかも！ さがしてみてね！',
-        'ころころ どんぐり が おちているよ！ タップしてみてね！',
+        'あっ！ ちょうちょ が ひらひら とんでるよ！ タップしてみてね！',
+        'きれいな おはな を みつけたよ！ タップしてみてね！',
+        'よつばの クローバー が あるかも！ タップしてみてね！',
+        'ころころ どんぐり が あるよ！ タップしてみてね！',
         'ちゅんちゅん！ きのうえ に ことり さん が いるよ！'
       ];
       const randomHint = hints[Math.floor(Math.random() * hints.length)];
-      this.setGuideText(`てくてく あるいたよ！ ${randomHint}`);
-    }, 850);
+      this.setGuideText(randomHint);
+    }, 1050);
   }
 
-  // お散歩コースの発見オブジェクトイベント登録
+  // オブジェクトの場所まで駆け寄ってリアクションする共通処理
+  runToTrailObject(targetX, targetY, onArrive) {
+    if (this.pet.isMoving) return;
+    this.pet.isMoving = true;
+
+    const petContainer = document.getElementById('pet-container');
+    const wrapper = petContainer ? petContainer.querySelector('.pet-wrapper') : null;
+
+    if (wrapper) wrapper.classList.add('pet-running');
+    soundSystem.playStep();
+
+    // 移動方向を向く (左へ行くなら反転)
+    const isMovingLeft = targetX < 50;
+    petContainer.style.transition = 'all 0.65s cubic-bezier(0.25, 1, 0.5, 1)';
+    petContainer.style.left = `${targetX}%`;
+    petContainer.style.top = `${targetY}%`;
+    petContainer.style.transform = `translate(-50%, -50%) scale(0.95) scaleX(${isMovingLeft ? -1 : 1})`;
+
+    // 途中の足音
+    setTimeout(() => {
+      soundSystem.playStep();
+    }, 320);
+
+    // 到着時
+    setTimeout(() => {
+      if (wrapper) wrapper.classList.remove('pet-running');
+      petContainer.style.transform = 'translate(-50%, -50%) scale(1) scaleX(1)';
+
+      if (onArrive) onArrive();
+
+      // リアクションを楽しんだ後、てくてく中央に戻る
+      setTimeout(() => {
+        if (this.currentScene === 'walk_trail') {
+          if (wrapper) wrapper.classList.add('pet-running');
+          soundSystem.playStep();
+          petContainer.style.transition = 'all 0.65s ease-in-out';
+          petContainer.style.left = '50%';
+          petContainer.style.top = '68%';
+
+          setTimeout(() => {
+            if (wrapper) wrapper.classList.remove('pet-running');
+            this.pet.isMoving = false;
+          }, 700);
+        } else {
+          this.pet.isMoving = false;
+        }
+      }, 2000);
+    }, 700);
+  }
+
+  // お散歩コースの発見オブジェクトイベント登録 (タップした場所まで駆け寄る)
   attachTrailObjectEvents() {
-    // 1. ちょうちょ
+    // 1. ちょうちょ (空中右寄り)
     const onButterfly = () => {
-      soundSystem.playJoy();
-      soundSystem.playPetVoice(this.pet.type);
-      this.pet.setExpression('happy', 2000);
-      this.pet.spawnEffect('heart');
-      this.pet.spawnEffect('sparkle');
-      const wrapper = document.querySelector('#pet-container .pet-wrapper');
-      if (wrapper) {
-        wrapper.classList.remove('pet-jump');
-        void wrapper.offsetWidth;
-        wrapper.classList.add('pet-jump');
-      }
-      this.setGuideText('ちょうちょ を みつけたね！ ひらひら とんで かわいいね！');
+      this.runToTrailObject(58, 60, () => {
+        soundSystem.playJoy();
+        soundSystem.playPetVoice(this.pet.type);
+        this.pet.setExpression('happy', 2000);
+        this.pet.spawnEffect('heart');
+        this.pet.spawnEffect('sparkle');
+        const wrapper = document.querySelector('#pet-container .pet-wrapper');
+        if (wrapper) {
+          wrapper.classList.remove('pet-jump');
+          void wrapper.offsetWidth;
+          wrapper.classList.add('pet-jump');
+        }
+        this.setGuideText('ちょうちょ を みつけたね！ ひらひら とんで かわいいね！🦋');
+      });
     };
     const bBadge = document.getElementById('badge-obj-butterfly');
     const bSvg = document.getElementById('trail-obj-butterfly');
     if (bBadge) bBadge.onclick = onButterfly;
     if (bSvg) bSvg.onclick = onButterfly;
 
-    // 2. おはな
+    // 2. おはな (左下手前)
     const onFlower = () => {
-      soundSystem.playClick();
-      soundSystem.playPetVoice(this.pet.type);
-      this.pet.setExpression('happy', 2000);
-      this.pet.spawnEffect('sparkle');
-      this.pet.spawnEffect('heart');
-      this.setGuideText('きれいな おはな を みつけたよ！ いいにおいが するね！');
+      this.runToTrailObject(30, 68, () => {
+        soundSystem.playClick();
+        soundSystem.playPetVoice(this.pet.type);
+        this.pet.setExpression('happy', 2000);
+        this.pet.spawnEffect('sparkle');
+        this.pet.spawnEffect('heart');
+        this.setGuideText('きれいな おはな を みつけたよ！ いいにおいが するね！🌸');
+      });
     };
     const fBadge = document.getElementById('badge-obj-flower');
     const fSvg = document.getElementById('trail-obj-flower');
     if (fBadge) fBadge.onclick = onFlower;
     if (fSvg) fSvg.onclick = onFlower;
 
-    // 3. クローバー
+    // 3. クローバー (右下)
     const onClover = () => {
-      soundSystem.playJoy();
-      this.pet.setExpression('happy', 2000);
-      this.pet.spawnEffect('sparkle');
-      this.pet.spawnEffect('sparkle');
-      this.setGuideText('あっ！ よつばの クローバー だ！ いいこと ありそうだね！🍀');
+      this.runToTrailObject(66, 70, () => {
+        soundSystem.playJoy();
+        this.pet.setExpression('happy', 2000);
+        this.pet.spawnEffect('sparkle');
+        this.pet.spawnEffect('sparkle');
+        this.setGuideText('あっ！ よつばの クローバー だ！ いいこと ありそうだね！🍀');
+      });
     };
     const cBadge = document.getElementById('badge-obj-clover');
     const cSvg = document.getElementById('trail-obj-clover');
     if (cBadge) cBadge.onclick = onClover;
     if (cSvg) cSvg.onclick = onClover;
 
-    // 4. どんぐり
+    // 4. どんぐり (右奥の木のふもと)
     const onAcorn = () => {
-      soundSystem.playClick();
-      this.pet.setExpression('happy', 1500);
-      this.pet.spawnEffect('note');
-      this.setGuideText('ころころ どんぐり を みつけたよ！ まあるくて かわいいね！🌰');
+      this.runToTrailObject(80, 64, () => {
+        soundSystem.playClick();
+        this.pet.setExpression('happy', 1500);
+        this.pet.spawnEffect('note');
+        this.setGuideText('ころころ どんぐり を みつけたよ！ まあるくて かわいいね！🌰');
+      });
     };
     const aBadge = document.getElementById('badge-obj-acorn');
     const aSvg = document.getElementById('trail-obj-acorn');
     if (aBadge) aBadge.onclick = onAcorn;
     if (aSvg) aSvg.onclick = onAcorn;
 
-    // 5. ことり
+    // 5. ことり (左の木の上)
     const onBird = () => {
-      soundSystem.playMorningBirds();
-      soundSystem.playPetVoice(this.pet.type);
-      this.pet.setExpression('happy', 2000);
-      this.pet.spawnEffect('note');
-      this.pet.spawnEffect('heart');
-      this.setGuideText('ちゅんちゅん！ かわいい ことり さんが ごあいさつ してくれたよ！🐦');
+      this.runToTrailObject(18, 64, () => {
+        soundSystem.playMorningBirds();
+        soundSystem.playPetVoice(this.pet.type);
+        this.pet.setExpression('happy', 2000);
+        this.pet.spawnEffect('note');
+        this.pet.spawnEffect('heart');
+        this.setGuideText('ちゅんちゅん！ かわいい ことり さんが ごあいさつ してくれたよ！🐦');
+      });
     };
     const birdBadge = document.getElementById('badge-obj-bird');
     const birdSvg = document.getElementById('trail-obj-bird');
