@@ -12,6 +12,27 @@ class SoundSystem {
     this.bgmTimer = null;
     this.bgmLoopEndTime = 0;
     this.bgmVolume = 0.16; // 心地よいBGM音量
+    this.speechVoice = null;
+    this.initSpeechVoices();
+  }
+
+  // Web Speech APIのボイス初期化 (Google日本語ボイス等を優先探索)
+  initSpeechVoices() {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      const updateVoice = () => {
+        const voices = window.speechSynthesis.getVoices();
+        // Google 日本語、または ja-JP / ja のボイスを優先
+        this.speechVoice = voices.find(v => (v.name.includes('Google') || v.name.includes('Chrome')) && v.lang.startsWith('ja'))
+          || voices.find(v => v.lang.startsWith('ja'))
+          || voices.find(v => v.lang.includes('ja'))
+          || null;
+      };
+
+      updateVoice();
+      if (window.speechSynthesis.onvoiceschanged !== undefined) {
+        window.speechSynthesis.onvoiceschanged = updateVoice;
+      }
+    }
   }
 
   // オーディオコンテキストの初期化 (ユーザー操作時に呼び出し)
@@ -33,6 +54,9 @@ class SoundSystem {
   // ミュート切り替え
   toggleMute() {
     this.isMuted = !this.isMuted;
+    if (this.isMuted && typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
     if (this.bgmGain && this.ctx) {
       const targetGain = this.isMuted ? 0 : this.bgmVolume;
       this.bgmGain.gain.cancelScheduledValues(this.ctx.currentTime);
@@ -301,9 +325,71 @@ class SoundSystem {
     osc.stop(t + 0.08);
   }
 
-  // ペットの鳴き声 (動物タイプ別)
+  // ペットの鳴き声 (Web Speech API によるGoogle音声合成 + フォールバック)
   playPetVoice(type) {
     if (this.isMuted) return;
+
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      // ペットごとの鳴き声セリフと声質パラメータ設定
+      const voiceConfig = {
+        dog: {
+          words: ['ワン！', 'わんわん！', 'ワフッ！'],
+          pitch: 1.4, // 元気な犬の声
+          rate: 1.3
+        },
+        cat: {
+          words: ['にゃー！', 'にゃ〜ん', 'みゃお！'],
+          pitch: 1.7, // 甘えんぼな猫の声
+          rate: 1.1
+        },
+        rabbit: {
+          words: ['ぴょん！', 'ぷぅぷぅ', 'きゅっ'],
+          pitch: 1.9, // 高音の小動物ボイス
+          rate: 1.4
+        },
+        guinea_pig: {
+          words: ['きゅいっ！', 'ぷいぷい！', 'きゅるる'],
+          pitch: 1.8, // テンポの良い高音ボイス
+          rate: 1.5
+        }
+      };
+
+      const cfg = voiceConfig[type] || { words: ['ワン！'], pitch: 1.4, rate: 1.2 };
+      const text = cfg.words[Math.floor(Math.random() * cfg.words.length)];
+
+      try {
+        // 直前の鳴き声をキャンセルして即応性を向上
+        window.speechSynthesis.cancel();
+
+        const utter = new SpeechSynthesisUtterance(text);
+        if (!this.speechVoice) {
+          const voices = window.speechSynthesis.getVoices();
+          this.speechVoice = voices.find(v => (v.name.includes('Google') || v.name.includes('Chrome')) && v.lang.startsWith('ja'))
+            || voices.find(v => v.lang.startsWith('ja'))
+            || null;
+        }
+
+        if (this.speechVoice) {
+          utter.voice = this.speechVoice;
+        }
+        utter.lang = 'ja-JP';
+        utter.pitch = cfg.pitch;
+        utter.rate = cfg.rate;
+        utter.volume = 1.0;
+
+        window.speechSynthesis.speak(utter);
+        return;
+      } catch (e) {
+        console.warn('SpeechSynthesis error, falling back to Web Audio:', e);
+      }
+    }
+
+    // Web Speech API 非対応時のフォールバック (オシレーターによるシンセ音)
+    this.playPetSynthVoice(type);
+  }
+
+  // Web Audio API によるシンセサイザー鳴き声 (フォールバック用)
+  playPetSynthVoice(type) {
     this.init();
     if (!this.ctx) return;
 
